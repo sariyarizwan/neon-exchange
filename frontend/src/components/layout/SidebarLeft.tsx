@@ -18,6 +18,8 @@ const trafficDots: Record<string, number> = {
 export function SidebarLeft() {
   const [query, setQuery] = useState("");
   const [replayMode, setReplayMode] = useState(false);
+  const focusMode = useNeonStore((state) => state.focusMode);
+  const overlaysDimmed = useNeonStore((state) => state.overlaysDimmed);
   const selectedDistrictId = useNeonStore((state) => state.selectedDistrictId);
   const selectedTickerId = useNeonStore((state) => state.selectedTickerId);
   const focusDistrict = useNeonStore((state) => state.focusDistrict);
@@ -43,8 +45,40 @@ export function SidebarLeft() {
       .slice(0, 6);
   }, [query]);
 
+  if (focusMode) {
+    return (
+      <aside
+        className={cn(
+          "glass-panel panel-frame flex h-full min-h-0 w-[56px] flex-col items-center justify-between py-4 transition-opacity duration-300",
+          overlaysDimmed && "pointer-events-none opacity-15"
+        )}
+      >
+        <div className="flex flex-col items-center gap-3">
+          {[
+            { icon: "◫", label: "Districts" },
+            { icon: "⌕", label: "Search" },
+            { icon: "◌", label: "Toggles" },
+            { icon: "☺", label: "Avatar" },
+            { icon: "⚙", label: "Settings" }
+          ].map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              title={item.label}
+              aria-label={item.label}
+              className="h-10 w-10 rounded-2xl border border-slate-800 bg-slate-950/76 text-sm text-slate-200 transition hover:border-neon-cyan/35 hover:text-cyan-100"
+            >
+              {item.icon}
+            </button>
+          ))}
+        </div>
+        <div className="h-2.5 w-2.5 rounded-full bg-neon-cyan shadow-[0_0_12px_rgba(51,245,255,0.65)]" />
+      </aside>
+    );
+  }
+
   return (
-    <aside className="glass-panel panel-frame flex h-full min-h-0 max-h-full flex-col overflow-hidden">
+    <aside className={cn("glass-panel panel-frame flex h-full min-h-0 max-h-full flex-col overflow-hidden transition-opacity duration-300", overlaysDimmed && "pointer-events-none opacity-15")}>
       <div className="sticky top-0 z-20 border-b border-white/5 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(8,12,18,0.9))] px-5 py-5 backdrop-blur-sm">
         <div className="text-[11px] uppercase tracking-[0.2em] text-neon-cyan">NEON EXCHANGE</div>
         <h1 className="mt-2 text-3xl font-semibold leading-none text-white neon-text">Dark Cyberpunk Market City</h1>

@@ -35,6 +35,15 @@ type InteractionBubble = {
   y: number;
 };
 
+type SelectedMarker = {
+  id: string;
+  kind: "ticker" | "prop" | "newsstand";
+  x: number;
+  y: number;
+  label: string;
+  color: string;
+};
+
 type WorldPanel = {
   title: string;
   subtitle: string;
@@ -393,11 +402,14 @@ export function CityCanvas() {
   const [interactionBubble, setInteractionBubble] = useState<InteractionBubble | null>(null);
   const [worldPanel, setWorldPanel] = useState<WorldPanel | null>(null);
   const [showPoi, setShowPoi] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [introTickerId, setIntroTickerId] = useState<string | null>(null);
+  const [selectedMarker, setSelectedMarker] = useState<SelectedMarker | null>(null);
 
   const camera = useNeonStore((state) => state.camera);
   const player = useNeonStore((state) => state.player);
+  const sound = useNeonStore((state) => state.sound);
+  const focusMode = useNeonStore((state) => state.focusMode);
+  const overlaysDimmed = useNeonStore((state) => state.overlaysDimmed);
   const pluginMode = useNeonStore((state) => state.pluginMode);
   const stormModeActive = useNeonStore((state) => state.stormModeActive);
   const activeNewsstandDistrictId = useNeonStore((state) => state.activeNewsstandDistrictId);
@@ -407,6 +419,9 @@ export function CityCanvas() {
   const focusHome = useNeonStore((state) => state.focusHome);
   const setSelectedTickerId = useNeonStore((state) => state.setSelectedTickerId);
   const setSelectedDistrictId = useNeonStore((state) => state.setSelectedDistrictId);
+  const setSoundEnabled = useNeonStore((state) => state.setSoundEnabled);
+  const setSoundVolume = useNeonStore((state) => state.setSoundVolume);
+  const setAudioNeedsGesture = useNeonStore((state) => state.setAudioNeedsGesture);
   const setPluginMode = useNeonStore((state) => state.setPluginMode);
   const setAvatarId = useNeonStore((state) => state.setAvatarId);
   const setActiveNewsstandDistrictId = useNeonStore((state) => state.setActiveNewsstandDistrictId);
@@ -885,7 +900,30 @@ export function CityCanvas() {
 
       visibleProps.forEach((prop) => {
         drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id]);
+        if (selectedMarker?.kind !== "ticker" && selectedMarker?.id === prop.id) {
+          const markerX = prop.x - currentCamera.x + prop.width / 2;
+          const markerY = prop.y - currentCamera.y + 6;
+          drawLightPool(ctx, markerX, markerY, 34, selectedMarker.color, 0.16);
+          drawRing(ctx, markerX, markerY, selectedMarker.color, 1.4);
+          drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
+          drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
+          ctx.fillStyle = "#F6FBFF";
+          ctx.font = "bold 9px monospace";
+          ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
+        }
       });
+
+      if (selectedMarker && selectedMarker.kind === "newsstand") {
+        const markerX = selectedMarker.x - currentCamera.x;
+        const markerY = selectedMarker.y - currentCamera.y + 6;
+        drawLightPool(ctx, markerX, markerY, 36, selectedMarker.color, 0.18);
+        drawRing(ctx, markerX, markerY, selectedMarker.color, 1.6);
+        drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
+        drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
+        ctx.fillStyle = "#F6FBFF";
+        ctx.font = "bold 9px monospace";
+        ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
+      }
 
       npcRuntimeRef.current.forEach((npc) => {
         const x = npc.x - currentCamera.x;
@@ -1124,6 +1162,14 @@ export function CityCanvas() {
       const district = districtsById[ticker.districtId];
       setIntroTickerId(ticker.id);
       setSelectedDistrictId(ticker.districtId);
+      setSelectedMarker({
+        id: ticker.id,
+        kind: "ticker",
+        x: stockRuntime.x,
+        y: stockRuntime.y,
+        label: ticker.symbol,
+        color: district.accent
+      });
       showBubble(ticker.id, `${ticker.symbol} online`, stockRuntime.x, stockRuntime.y - 26);
       if (introTimeoutRef.current !== null) {
         window.clearTimeout(introTimeoutRef.current);
@@ -1142,12 +1188,28 @@ export function CityCanvas() {
     if (newsstand) {
       setActiveNewsstandDistrictId(newsstand.districtId);
       setSelectedDistrictId(newsstand.districtId);
+      setSelectedMarker({
+        id: newsstand.id,
+        kind: "newsstand",
+        x: newsstand.x + 18,
+        y: newsstand.y,
+        label: "Newsstand",
+        color: districtsById[newsstand.districtId].accent
+      });
       showBubble(newsstand.id, "Newsstand open", newsstand.x, newsstand.y - 34);
       return;
     }
 
     const prop = getPropAt(world.x, world.y);
     if (prop && prop.interactive) {
+      setSelectedMarker({
+        id: prop.id,
+        kind: "prop",
+        x: prop.x + prop.width / 2,
+        y: prop.y,
+        label: prop.label,
+        color: prop.accent
+      });
       if (prop.landmarkTitle) {
         triggerPropEffect(prop.id, "landmark", 1200);
         setWorldPanel({
@@ -1205,6 +1267,11 @@ export function CityCanvas() {
     focusWorldPoint(x, y);
   };
 
+  const floatingCardClass = cn(
+    "pointer-events-auto rounded-2xl border border-slate-800/80 bg-slate-950/84 px-3 py-2 shadow-panel backdrop-blur-sm transition-opacity duration-300",
+    overlaysDimmed && "pointer-events-none opacity-15"
+  );
+
   return (
     <div className="relative h-full min-h-[620px] w-full overflow-hidden rounded-[1.8rem]">
       <canvas
@@ -1221,14 +1288,15 @@ export function CityCanvas() {
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(51,245,255,0.06),transparent_30%),radial-gradient(circle_at_85%_12%,rgba(255,61,242,0.08),transparent_24%)]" />
 
-      <div className="pointer-events-none absolute left-4 top-4 flex max-w-[360px] flex-col gap-3" data-ignore-camera-keys="true">
-        <div className="pointer-events-auto rounded-2xl border border-slate-800/80 bg-slate-950/84 px-3 py-2 shadow-panel backdrop-blur-sm">
+      {!focusMode ? (
+        <div className="pointer-events-none absolute left-4 top-4 flex max-w-[360px] flex-col gap-3" data-ignore-camera-keys="true">
+        <div className={floatingCardClass}>
           <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">World</div>
           <div className="mt-1 text-lg font-semibold text-white">Living Pixel Market City</div>
           <div className="text-xs text-slate-400">Drag to pan. Move with WASD or arrows. NPCs patrol, props react, storms change the atmosphere.</div>
         </div>
 
-        <div className="pointer-events-auto rounded-2xl border border-slate-800/80 bg-slate-950/84 px-3 py-2 shadow-panel backdrop-blur-sm">
+        <div className={floatingCardClass}>
           <div className="flex items-center justify-between gap-2">
             <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Plugin Mode</div>
             <button
@@ -1246,14 +1314,33 @@ export function CityCanvas() {
             <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Sound</div>
             <button
               type="button"
-              onClick={() => setSoundEnabled(!soundEnabled)}
+              onClick={() => {
+                setSoundEnabled(!sound.enabled);
+                if (!sound.bootstrapped && !sound.enabled) {
+                  setAudioNeedsGesture(true);
+                }
+              }}
               className={cn(
                 "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition",
-                soundEnabled ? "border-neon-magenta/45 bg-neon-magenta/12 text-fuchsia-100" : "border-slate-700 bg-slate-900/80 text-slate-300"
+                sound.enabled ? "border-neon-magenta/45 bg-neon-magenta/12 text-fuchsia-100" : "border-slate-700 bg-slate-900/80 text-slate-300"
               )}
             >
-              {soundEnabled ? "Mock On" : "Mock Off"}
+              {sound.enabled ? "On" : "Off"}
             </button>
+          </div>
+          <div className="mt-3">
+            <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-slate-500">
+              <span>Volume</span>
+              <span>{sound.volume}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={sound.volume}
+              onChange={(event) => setSoundVolume(Number(event.target.value))}
+              className="w-full accent-cyan-300"
+            />
           </div>
           <div className="mt-2 flex items-center justify-between gap-2">
             <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">POI Markers</div>
@@ -1268,53 +1355,77 @@ export function CityCanvas() {
               {showPoi ? "Shown" : "Hidden"}
             </button>
           </div>
+          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/76 px-2 py-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+            SoundEnabled {String(sound.enabled)} · Volume {sound.volume} · Track {sound.trackName} · Playing {String(sound.playing)}
+          </div>
+          {sound.needsGesture ? <div className="mt-2 text-[11px] text-amber-200">Tap once to enable audio.</div> : null}
         </div>
 
-        <div className="pointer-events-auto rounded-2xl border border-neon-cyan/20 bg-neon-cyan/8 px-3 py-2 shadow-panel backdrop-blur-sm">
+        <div className={cn(floatingCardClass, "border-neon-cyan/20 bg-neon-cyan/8")}>
           <div className="text-[10px] uppercase tracking-[0.16em] text-neon-cyan">Quest Hint</div>
           <div className="mt-1 text-sm text-white">{questHint}</div>
         </div>
-      </div>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "pointer-events-none absolute left-4 top-4 z-20 flex items-center gap-2 transition-opacity duration-300",
+            overlaysDimmed && "opacity-15"
+          )}
+        >
+          {selectedDistrictId ? (
+            <div className="pointer-events-auto rounded-full border border-neon-cyan/35 bg-slate-950/86 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
+              {districtsById[selectedDistrictId]?.name}
+            </div>
+          ) : null}
+        </div>
+      )}
 
-      <div className="pointer-events-none absolute bottom-4 left-4 max-w-[320px]" data-ignore-camera-keys="true">
-        <div className="pointer-events-auto rounded-2xl border border-slate-800/80 bg-slate-950/84 px-3 py-3 shadow-panel backdrop-blur-sm">
-        <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">Avatar Picker</div>
-        <div className="flex flex-wrap gap-2">
-          {avatarOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => setAvatarId(option.id)}
-              className={cn(
-                "rounded-xl border px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/70",
-                player.avatarId === option.id
-                  ? "border-neon-cyan/40 bg-neon-cyan/10 shadow-neon-cyan"
-                  : "border-slate-800 bg-slate-900/70 hover:border-slate-700"
-              )}
-            >
-              <span className="flex items-center gap-2">
-                <span className="relative block h-8 w-8 rounded-md bg-slate-950/80">
-                  <span className="absolute left-1.5 top-1 h-1.5 w-5 rounded-sm" style={{ backgroundColor: option.trim }} />
-                  <span className="absolute left-1 top-2.5 h-3.5 w-6 rounded-sm" style={{ backgroundColor: option.body }} />
-                  <span className="absolute left-2 top-3.5 h-1 w-4 rounded-sm" style={{ backgroundColor: option.visor }} />
-                </span>
-                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-white">{option.name}</span>
-              </span>
-            </button>
-          ))}
+      {!focusMode ? (
+        <div className="pointer-events-none absolute bottom-4 left-4 max-w-[320px]" data-ignore-camera-keys="true">
+          <div className={floatingCardClass}>
+            <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">Avatar Picker</div>
+            <div className="flex flex-wrap gap-2">
+              {avatarOptions.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setAvatarId(option.id)}
+                  className={cn(
+                    "rounded-xl border px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/70",
+                    player.avatarId === option.id
+                      ? "border-neon-cyan/40 bg-neon-cyan/10 shadow-neon-cyan"
+                      : "border-slate-800 bg-slate-900/70 hover:border-slate-700"
+                  )}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="relative block h-8 w-8 rounded-md bg-slate-950/80">
+                      <span className="absolute left-1.5 top-1 h-1.5 w-5 rounded-sm" style={{ backgroundColor: option.trim }} />
+                      <span className="absolute left-1 top-2.5 h-3.5 w-6 rounded-sm" style={{ backgroundColor: option.body }} />
+                      <span className="absolute left-2 top-3.5 h-1 w-4 rounded-sm" style={{ backgroundColor: option.visor }} />
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-white">{option.name}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        </div>
-      </div>
+      ) : null}
 
       <div className="pointer-events-none absolute right-4 top-4 flex flex-col items-end gap-3" data-ignore-camera-keys="true">
         <button
           type="button"
           aria-label="Jump camera using minimap"
           onClick={handleMinimapJump}
-          className="glass-panel neon-border pointer-events-auto h-[206px] w-[240px] overflow-hidden rounded-2xl p-2 text-left"
+          className={cn(
+            "glass-panel neon-border pointer-events-auto overflow-hidden rounded-2xl p-2 text-left transition-opacity duration-300",
+            focusMode ? "h-[140px] w-[140px]" : "h-[206px] w-[240px]",
+            overlaysDimmed && "pointer-events-none opacity-15"
+          )}
         >
-          <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">Minimap</div>
-          <svg viewBox={`0 0 ${WORLD_WIDTH} ${WORLD_HEIGHT}`} className="h-[104px] w-full rounded-xl bg-slate-950/80">
+          {!focusMode ? <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">Minimap</div> : null}
+          <svg viewBox={`0 0 ${WORLD_WIDTH} ${WORLD_HEIGHT}`} className={cn("w-full rounded-xl bg-slate-950/80", focusMode ? "h-[112px]" : "h-[104px]")}>
             <rect x="0" y="0" width={WORLD_WIDTH} height={WORLD_HEIGHT} fill="#05060A" />
             {districtZones.map((zone) => (
               <rect
@@ -1331,19 +1442,54 @@ export function CityCanvas() {
             <circle cx={player.x} cy={player.y} r="42" fill="#F8FBFF" />
             <rect x={camera.x} y={camera.y} width={camera.viewportWidth} height={camera.viewportHeight} fill="none" stroke="#F8FBFF" strokeWidth="48" rx="32" />
           </svg>
-          <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] uppercase tracking-[0.14em] text-slate-400">
-            {Object.values(districtThemes).map((theme) => (
-                <div key={theme.districtId} className="flex items-center gap-1">
-                  <span className="text-neon-cyan">{theme.icon}</span>
-                  <span>{districtsById[theme.districtId].name}</span>
-                </div>
-              ))}
-          </div>
+          {!focusMode ? (
+            <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] uppercase tracking-[0.14em] text-slate-400">
+              {Object.values(districtThemes).map((theme) => (
+                  <div key={theme.districtId} className="flex items-center gap-1">
+                    <span className="text-neon-cyan">{theme.icon}</span>
+                    <span>{districtsById[theme.districtId].name}</span>
+                  </div>
+                ))}
+            </div>
+          ) : null}
         </button>
 
-        <Button size="sm" onClick={focusHome} aria-label="Return camera to home district" className="pointer-events-auto">
-          Home
-        </Button>
+        <div className="pointer-events-none flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => {
+              focusHome();
+              setSelectedMarker(null);
+            }}
+            aria-label="Return camera to home district"
+            className={cn("pointer-events-auto", overlaysDimmed && "pointer-events-none opacity-15")}
+          >
+            Home
+          </Button>
+          <button
+            type="button"
+            aria-label="Toggle ambience audio"
+            onClick={() => {
+              setSoundEnabled(!sound.enabled);
+              if (!sound.bootstrapped && !sound.enabled) {
+                setAudioNeedsGesture(true);
+              }
+            }}
+            className={cn(
+              "pointer-events-auto rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
+              sound.enabled ? "border-neon-magenta/40 bg-neon-magenta/14 text-fuchsia-100 shadow-neon-magenta" : "border-slate-700 bg-slate-950/82 text-slate-200",
+              overlaysDimmed && "pointer-events-none opacity-15"
+            )}
+            title={sound.needsGesture ? "Tap once to enable audio." : "Toggle ambience"}
+          >
+            {sound.enabled ? "♪" : "⟂"}
+          </button>
+          {focusMode && sound.needsGesture ? (
+            <div className="pointer-events-auto rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
+              Tap once for audio
+            </div>
+          ) : null}
+        </div>
       </div>
 
       {pluginMode && pluginPrompt ? (

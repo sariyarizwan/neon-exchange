@@ -7,6 +7,7 @@ import { useNeonStore } from "@/store/useNeonStore";
 
 export function BottomDock() {
   const dock = useNeonStore((state) => state.dock);
+  const sound = useNeonStore((state) => state.sound);
   const toggleMic = useNeonStore((state) => state.toggleMic);
   const interruptMic = useNeonStore((state) => state.interruptMic);
   const setPersona = useNeonStore((state) => state.setPersona);
@@ -60,6 +61,9 @@ export function BottomDock() {
         </div>
 
         <div className="flex items-center justify-end gap-3 max-[980px]:justify-start">
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/72 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+            Sound {sound.enabled ? "On" : "Off"} · Vol {sound.volume} · {sound.trackName} · Playing {String(sound.playing)}
+          </div>
           <label className="flex min-w-[150px] flex-col gap-1 text-[10px] uppercase tracking-[0.16em] text-slate-500">
             Agent Persona
             <select

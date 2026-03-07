@@ -19,6 +19,10 @@ const tabItems: Array<{ value: RightPanelTab; label: string }> = [
 ];
 
 export function RightPanel() {
+  const focusMode = useNeonStore((state) => state.focusMode);
+  const focusRightPanelOpen = useNeonStore((state) => state.focusRightPanelOpen);
+  const setFocusRightPanelOpen = useNeonStore((state) => state.setFocusRightPanelOpen);
+  const overlaysDimmed = useNeonStore((state) => state.overlaysDimmed);
   const selectedTickerId = useNeonStore((state) => state.selectedTickerId);
   const activeRightPanelTab = useNeonStore((state) => state.activeRightPanelTab);
   const evidenceTimeline = useNeonStore((state) => state.evidenceTimeline);
@@ -41,9 +45,17 @@ export function RightPanel() {
     : [];
 
   return (
-    <aside className="glass-panel panel-frame flex h-full min-h-0 max-h-full flex-col overflow-hidden max-[980px]:col-span-2">
+    <aside
+      className={cn(
+        "glass-panel panel-frame flex h-full min-h-0 max-h-full flex-col overflow-hidden transition-[opacity,width,transform] duration-300 max-[980px]:col-span-2",
+        overlaysDimmed && "pointer-events-none opacity-15",
+        focusMode && !focusRightPanelOpen && "w-0 translate-x-6 border-0 opacity-0 shadow-none"
+      )}
+    >
       <div className="sticky top-0 z-20 border-b border-white/5 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(8,12,18,0.92))] px-5 py-5 backdrop-blur-sm">
-        <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Ticker Detail</div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Ticker Detail</div>
         {ticker ? (
           <>
             <div className="mt-2 flex items-center gap-3">
@@ -61,6 +73,17 @@ export function RightPanel() {
         ) : (
           <div className="mt-3 text-sm text-slate-400">Select a ticker node on the city map to inspect scenes, alliances, and evidence.</div>
         )}
+          </div>
+          {focusMode ? (
+            <button
+              type="button"
+              onClick={() => setFocusRightPanelOpen(false)}
+              className="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-slate-200"
+            >
+              Hide
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain scroll-smooth px-4 py-4">
