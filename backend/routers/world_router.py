@@ -180,5 +180,3 @@ async def get_evidence_feed():
         })
 
     return {"evidence": items}
-
-
