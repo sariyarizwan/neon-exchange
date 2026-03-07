@@ -1,5 +1,6 @@
 "use client";
 
+import { useLiveData } from "@/components/LiveDataProvider";
 import { districts } from "@/mock/districts";
 import { tickers } from "@/mock/tickers";
 import { cn } from "@/lib/cn";
@@ -13,13 +14,18 @@ export function BottomDock() {
   const selectedDistrictId = useNeonStore((state) => state.selectedDistrictId);
   const toggleMic = useNeonStore((state) => state.toggleMic);
   const setSoundEnabled = useNeonStore((state) => state.setSoundEnabled);
+  const { tickers: liveTickers, connected: liveConnected, isLive } = useLiveData();
 
   const ticker = tickers.find((entry) => entry.id === selectedTickerId) ?? null;
+  const liveTicker = ticker && liveTickers ? liveTickers[ticker.id] : null;
   const district = districts.find((entry) => entry.id === (ticker?.districtId ?? selectedDistrictId ?? null)) ?? null;
+
+  const priceTag = liveTicker ? `$${liveTicker.price.toFixed(2)} (${liveTicker.changePct >= 0 ? "+" : ""}${liveTicker.changePct.toFixed(2)}%)` : "";
   const hudLine = ticker
-    ? `${ticker.symbol} selected. ${ticker.fullName} is speaking through the street feed.`
+    ? `${ticker.symbol} selected.${priceTag ? ` ${priceTag}` : ""} ${ticker.fullName} is speaking through the street feed.`
     : guide.message ?? dock.transcriptLines[0] ?? "Roam the city and approach an NPC to hear the tape.";
   const personaCode = dock.persona === "Market Maker" ? "MM" : dock.persona === "Whale" ? "WH" : "ND";
+  const isConnected = liveConnected || dock.connected;
 
   return (
     <footer className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4">
@@ -43,6 +49,7 @@ export function BottomDock() {
           <div className="min-w-0 flex-1">
             <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">
               {guide.speaking ? "Now speaking" : ticker ? "Selected NPC" : district ? district.name : "City Feed"}
+              {isLive ? <span className="ml-2 text-lime-400">LIVE</span> : null}
             </div>
             <div className="mt-1 truncate text-sm text-slate-100">{hudLine}</div>
           </div>
@@ -71,11 +78,11 @@ export function BottomDock() {
             <div
               className={cn(
                 "flex h-10 w-10 items-center justify-center rounded-full border text-sm",
-                dock.connected ? "border-lime-400/35 bg-lime-400/10 text-lime-100" : "border-amber-400/35 bg-amber-400/10 text-amber-100"
+                isConnected ? "border-lime-400/35 bg-lime-400/10 text-lime-100" : "border-amber-400/35 bg-amber-400/10 text-amber-100"
               )}
-              title={dock.connected ? "Connected" : "Disconnected"}
+              title={isConnected ? (isLive ? "Live Market Data" : "Connected (Mock)") : "Disconnected"}
             >
-              {dock.connected ? "•" : "!"}
+              {isConnected ? "•" : "!"}
             </div>
           </div>
         </div>

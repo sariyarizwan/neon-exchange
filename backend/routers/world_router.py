@@ -85,7 +85,71 @@ async def get_scenarios():
 @router.get("/news")
 async def get_news():
     """Return recent news headlines."""
-    return {"news": shared_memory.recent_news}
+    from services.news_feed import news_feed_service
+    headlines = news_feed_service.get_recent(20)
+    if not headlines:
+        headlines = news_feed_service.generate_headlines(10)
+    return {"news": headlines, "isLive": news_feed_service.is_live}
+
+
+@router.get("/neon-stream")
+async def neon_stream(request: Request):
+    """SSE stream optimized for the frontend.
+
+    Emits neon-formatted market data (keyed by frontend ticker IDs) and news
+    every 2 seconds. Does NOT run the heavy agent pipeline -- use /stream for that.
+    """
+    from services.news_feed import news_feed_service
+    from config.ticker_mapping import TICKER_BY_REAL
+
+    async def event_generator():
+        tick_count = 0
+        while True:
+            if await request.is_disconnected():
+                break
+
+            market_data_service.generate_tick()
+            tickers = market_data_service.get_all_tickers()
+
+            # Build neon-format ticker map
+            neon_tickers = {}
+            for t in tickers:
+                change = t.change_pct
+                trend = "up" if change > 0.3 else ("down" if change < -0.3 else "flat")
+                mood = "erratic" if abs(change) > 3 else ("confident" if change > 0.5 else "nervous")
+                regime = "storm" if t.volatility_regime == "extreme" else ("choppy" if t.volatility_regime in ("high", "normal") else "calm")
+
+                neon_tickers[t.neon_id] = {
+                    "neonId": t.neon_id,
+                    "neonSymbol": t.neon_symbol,
+                    "price": t.price,
+                    "changePct": t.change_pct,
+                    "trend": trend,
+                    "mood": mood,
+                    "regime": regime,
+                    "momentum": t.momentum,
+                }
+
+            # Include fresh news every 5 ticks
+            news = []
+            if tick_count % 5 == 0:
+                news = news_feed_service.get_recent(5)
+
+            payload = {
+                "tickers": neon_tickers,
+                "news": news,
+                "tick": tick_count,
+            }
+
+            yield {
+                "event": "neon_update",
+                "data": json.dumps(payload, default=str),
+            }
+
+            tick_count += 1
+            await asyncio.sleep(2)
+
+    return EventSourceResponse(event_generator())
 
 
 def _mood(tickers) -> str:

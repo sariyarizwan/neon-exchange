@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Logo } from "@/components/ui/Logo";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Toggle } from "@/components/ui/Toggle";
+import { useLiveData } from "@/components/LiveDataProvider";
 import { avatarOptions, districtZones } from "@/mock/cityWorld";
 import { districtThemes } from "@/mock/cityThemes";
 import { districts } from "@/mock/districts";
@@ -50,6 +51,7 @@ export function SidebarLeft() {
   const showAlliances = useNeonStore((state) => state.showAlliances);
   const showStorms = useNeonStore((state) => state.showStorms);
   const showRumors = useNeonStore((state) => state.showRumors);
+  const { tickers: liveTickers, connected: liveConnected, isLive, marketMood } = useLiveData();
 
   const searchResults = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -195,8 +197,13 @@ export function SidebarLeft() {
                       <span>
                         <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-white">{ticker.symbol}</span>
                         <span className="block text-[11px] text-slate-400">{ticker.fullName}</span>
+                        {liveTickers?.[ticker.id] ? (
+                          <span className={cn("block text-[11px] font-medium", liveTickers[ticker.id].changePct >= 0 ? "text-lime-400" : "text-rose-400")}>
+                            ${liveTickers[ticker.id].price.toFixed(2)} {liveTickers[ticker.id].changePct >= 0 ? "+" : ""}{liveTickers[ticker.id].changePct.toFixed(2)}%
+                          </span>
+                        ) : null}
                       </span>
-                      <Badge variant="slate">{ticker.mood}</Badge>
+                      <Badge variant="slate">{liveTickers?.[ticker.id]?.mood ?? ticker.mood}</Badge>
                     </button>
                   ))
                 ) : (
@@ -338,8 +345,8 @@ export function SidebarLeft() {
                     </select>
                   </label>
                   <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-                    <div className="rounded-xl border border-slate-800 bg-slate-950/72 px-2 py-2">
-                      {dock.connected ? "Live Connected" : "Offline"}
+                    <div className={cn("rounded-xl border px-2 py-2", liveConnected ? "border-lime-400/30 bg-lime-400/8 text-lime-300" : "border-slate-800 bg-slate-950/72")}>
+                      {liveConnected ? (isLive ? "Live Data" : "Mock Data") : "Offline"}
                     </div>
                     <div className="rounded-xl border border-slate-800 bg-slate-950/72 px-2 py-2">{sound.trackName}</div>
                   </div>

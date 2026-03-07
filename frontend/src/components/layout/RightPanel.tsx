@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
+import { useLiveData } from "@/components/LiveDataProvider";
 import { districts } from "@/mock/districts";
 import { rumors } from "@/mock/rumors";
 import { getScenariosForTicker } from "@/mock/scenarios";
@@ -35,7 +36,10 @@ export function RightPanel() {
   const setSelectedDistrictId = useNeonStore((state) => state.setSelectedDistrictId);
   const clearSelection = useNeonStore((state) => state.clearSelection);
 
+  const { tickers: liveTickers, news: liveNews } = useLiveData();
+
   const ticker = tickers.find((entry) => entry.id === selectedTickerId) ?? null;
+  const liveTicker = ticker && liveTickers ? liveTickers[ticker.id] : null;
   const district = districts.find((entry) => entry.id === ticker?.districtId) ?? null;
   const scenarios = getScenariosForTicker(ticker);
   const activeScenario = scenarios[0] ?? null;
@@ -62,12 +66,24 @@ export function RightPanel() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Street Contact</div>
-                <div className="mt-2 truncate text-xl font-semibold text-white">{ticker.symbol}</div>
+                <div className="mt-2 flex items-baseline gap-3">
+                  <span className="truncate text-xl font-semibold text-white">{ticker.symbol}</span>
+                  {liveTicker ? (
+                    <span className={cn("text-sm font-medium", liveTicker.changePct >= 0 ? "text-lime-400" : "text-rose-400")}>
+                      ${liveTicker.price.toFixed(2)} <span className="text-xs">{liveTicker.changePct >= 0 ? "+" : ""}{liveTicker.changePct.toFixed(2)}%</span>
+                    </span>
+                  ) : null}
+                </div>
                 <div className="mt-1 truncate text-xs text-slate-300">{ticker.fullName}</div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge variant={ticker.mood === "confident" ? "lime" : ticker.mood === "nervous" ? "amber" : "magenta"}>
-                    {ticker.mood}
+                  <Badge variant={(liveTicker?.mood ?? ticker.mood) === "confident" ? "lime" : (liveTicker?.mood ?? ticker.mood) === "nervous" ? "amber" : "magenta"}>
+                    {liveTicker?.mood ?? ticker.mood}
                   </Badge>
+                  {liveTicker ? (
+                    <Badge variant={liveTicker.regime === "storm" ? "magenta" : liveTicker.regime === "choppy" ? "amber" : "lime"}>
+                      {liveTicker.regime}
+                    </Badge>
+                  ) : null}
                   {district ? <Badge variant="cyan">{district.name}</Badge> : null}
                 </div>
               </div>
@@ -166,6 +182,17 @@ export function RightPanel() {
                 {activeRightPanelTab === "evidence" ? (
                   <Card className="rounded-[1.4rem] p-4">
                     <div className="space-y-2">
+                      {liveNews && liveNews.length > 0 ? (
+                        <>
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-lime-400">Live News</div>
+                          {liveNews.slice(0, 3).map((item, i) => (
+                            <div key={`news-${i}`} className="rounded-2xl border border-lime-400/20 bg-slate-950/70 px-3 py-3">
+                              <div className="text-[10px] uppercase tracking-[0.16em] text-lime-400">{item.source} - {item.sector}</div>
+                              <div className="mt-1 text-sm text-slate-200">{item.headline}</div>
+                            </div>
+                          ))}
+                        </>
+                      ) : null}
                       {evidenceTimeline.slice(0, 5).map((entry) => (
                         <div key={entry.id} className="rounded-2xl border border-slate-800 bg-slate-950/70 px-3 py-3">
                           <div className="text-[10px] uppercase tracking-[0.16em] text-neon-cyan">{entry.timestamp}</div>

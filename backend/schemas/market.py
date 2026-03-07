@@ -13,9 +13,11 @@ class TickerState(BaseModel):
     trend: Literal["bullish", "bearish", "neutral"]
     momentum: float = Field(ge=-1.0, le=1.0)
     volatility_regime: Literal["low", "normal", "high", "extreme"]
+    neon_id: str = ""
+    neon_symbol: str = ""
 
 
 class MarketState(BaseModel):
     tickers: list[TickerState]
-    timestamp: str
+    timestamp: str = ""
     market_mood: str

@@ -9,6 +9,7 @@ import { CenterStage } from "@/components/layout/CenterStage";
 import { RightPanel } from "@/components/layout/RightPanel";
 import { SidebarLeft } from "@/components/layout/SidebarLeft";
 import { TopHeader } from "@/components/layout/TopHeader";
+import { LiveDataProvider } from "@/components/LiveDataProvider";
 import { cn } from "@/lib/cn";
 import { readStoredAuth } from "@/lib/mockAuth";
 import { useNeonStore } from "@/store/useNeonStore";
@@ -96,6 +97,7 @@ export default function HomePage() {
   }
 
   return (
+    <LiveDataProvider>
     <main className="relative min-h-screen overflow-hidden bg-base-950 text-slate-100">
       <AmbientAudioController />
       <GuideVoiceController />
@@ -137,5 +139,6 @@ export default function HomePage() {
         <BottomDock />
       </div>
     </main>
+    </LiveDataProvider>
   );
 }

@@ -23,15 +23,31 @@ This repository now separates frontend and backend documentation so the project 
 - plugin mode UI hook with placeholder stock links
 - bottom dock placeholder for live voice UI
 
+### Backend (Implemented)
+
+- FastAPI gateway on port 8080 (`backend/main.py`)
+- Finnhub-powered live market data with mock fallback (`backend/services/market_data.py`)
+- Finnhub-powered live news with mock fallback (`backend/services/news_feed.py`)
+- ADK-based multi-agent orchestration: market analyst, news analyst, correlation, scenario generator, world renderer (`backend/agents/`)
+- Gemini Live voice WebSocket relay (`backend/routers/voice_router.py`)
+- SSE streaming endpoint for real-time frontend updates (`/api/world/neon-stream`)
+- Neon-state endpoint mapping real symbols to frontend fictional tickers (`/api/market/neon-state`)
+- Shared memory singleton for cross-agent state (`backend/memory/shared_state.py`)
+- Ticker mapping config bridging 23 fictional tickers to real symbols (`backend/config/ticker_mapping.py`)
+
+### Frontend-Backend Integration (Implemented)
+
+- API service layer with typed functions (`frontend/src/lib/api.ts`)
+- LiveDataProvider context wrapping the app (`frontend/src/components/LiveDataProvider.tsx`)
+- Live market hook with SSE + polling fallback (`frontend/src/hooks/useLiveMarket.ts`)
+- Live news polling hook (`frontend/src/hooks/useLiveNews.ts`)
+- Voice WebSocket hook with push-to-talk audio capture (`frontend/src/hooks/useVoice.ts`)
+- BottomDock, SidebarLeft, RightPanel all consume live data with graceful mock fallback
+
 ### Still Pending
 
-- real live market data
-- real live news ingestion
-- Gemini Live API integration
-- ADK-based multi-agent orchestration
-- shared memory backend
 - Google Cloud deployment architecture
-- real audio engine
+- real audio engine (currently Web Speech API + ambient wav)
 - real plugin / stock-page integration
 
 ## Team Split
