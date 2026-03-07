@@ -1,12 +1,11 @@
 import asyncio
-import json
 import logging
 
 from fastapi import APIRouter, Request
 from sse_starlette.sse import EventSourceResponse
 
 from memory.shared_state import shared_memory
-from services.market_data import market_data_service
+from services.cache import snapshot_cache
 from agents.orchestrator import run_orchestrator
 
 logger = logging.getLogger(__name__)
@@ -16,17 +15,16 @@ router = APIRouter(prefix="/api/world", tags=["world"])
 @router.get("/state")
 async def get_world_state():
     """Return current full world state snapshot."""
-    return shared_memory.get_bootstrap()
+    return snapshot_cache.snapshot.bootstrap
 
 
 @router.get("/stream")
 async def world_stream(request: Request):
     """SSE stream that emits world updates every 2 seconds.
 
-    Each tick:
-    1. Advances market simulation
-    2. Optionally runs agent analysis (every 10 ticks)
-    3. Emits updated world state
+    Cache rebuilds in the background. This loop just reads the
+    pre-serialized snapshot and emits it — zero computation.
+    Agent analysis runs every 10 ticks (~20 seconds).
     """
 
     async def event_generator():
@@ -35,13 +33,9 @@ async def world_stream(request: Request):
             if await request.is_disconnected():
                 break
 
-            # Advance market
-            market_data_service.generate_tick()
-            tickers = market_data_service.get_all_tickers()
-            shared_memory.update_market_state({
-                "tickers": [t.model_dump() for t in tickers],
-                "market_mood": _mood(tickers),
-            })
+            # Sync cache state into shared_memory for agent access
+            snap = snapshot_cache.snapshot
+            shared_memory.update_market_state(snap.market_state)
 
             # Run full agent analysis every 10 ticks (~20 seconds)
             if tick_count % 10 == 0 and tick_count > 0:
@@ -53,10 +47,9 @@ async def world_stream(request: Request):
                 except Exception as e:
                     logger.warning(f"Agent cycle failed: {e}")
 
-            state = shared_memory.get_bootstrap()
             yield {
                 "event": "world_update",
-                "data": json.dumps(state, default=str),
+                "data": snap.bootstrap_json,
             }
 
             tick_count += 1

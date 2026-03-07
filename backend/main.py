@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -7,6 +8,7 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import default_router, market_router, agents_router, voice_router, world_router
+from services.cache import snapshot_cache
 import uvicorn
 import logging
 
@@ -17,7 +19,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="NEON EXCHANGE Backend", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await snapshot_cache.start()
+    yield
+    await snapshot_cache.stop()
+
+
+app = FastAPI(title="NEON EXCHANGE Backend", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
