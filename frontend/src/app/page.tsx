@@ -32,6 +32,7 @@ export default function HomePage() {
   useEffect(() => {
     const stored = readStoredAuth();
     if (!stored?.isAuthed) {
+      setCheckedAuth(true);
       router.replace("/login");
       return;
     }
@@ -69,7 +70,7 @@ export default function HomePage() {
     };
   }, [clearSelection, toggleMic]);
 
-  if (!checkedAuth || !auth) {
+  if (!checkedAuth) {
     return (
       <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-base-950 text-slate-100">
         <div className="noise-overlay absolute inset-0 opacity-40" aria-hidden="true" />
@@ -80,6 +81,10 @@ export default function HomePage() {
         </div>
       </main>
     );
+  }
+
+  if (!auth) {
+    return null;
   }
 
   return (

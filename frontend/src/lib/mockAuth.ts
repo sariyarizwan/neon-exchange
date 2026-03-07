@@ -33,6 +33,7 @@ export const writeStoredAuth = (user: MockUser) => {
     user
   };
   window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
+  window.dispatchEvent(new StorageEvent("storage", { key: AUTH_STORAGE_KEY, newValue: JSON.stringify(payload) }));
 };
 
 export const clearStoredAuth = () => {
@@ -41,4 +42,5 @@ export const clearStoredAuth = () => {
   }
 
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  window.dispatchEvent(new StorageEvent("storage", { key: AUTH_STORAGE_KEY, newValue: null }));
 };
