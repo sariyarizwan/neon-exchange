@@ -1,7 +1,19 @@
 import { districtThemes } from "@/mock/cityThemes";
 import { districts } from "@/mock/districts";
+import { districtNewsBoards } from "@/mock/news";
 import { tickers } from "@/mock/tickers";
-import type { AvatarOption, Citizen, DistrictZone, NewsstandData, StockNpcProfile, WorldCollider, WorldProp, WorldPropType } from "@/types/world";
+import type {
+  AvatarOption,
+  Citizen,
+  DistrictZone,
+  NewsstandData,
+  StockNpcProfile,
+  WorldCollider,
+  WorldProp,
+  WorldPropType,
+  WorldStructure,
+  WorldSurface
+} from "@/types/world";
 
 const districtZonePresets: Record<
   string,
@@ -88,34 +100,262 @@ export const newsstands: NewsstandData[] = districts.map((district, index) => {
     x: zone.x + zone.streetInset + 74 + (index % 2) * 40,
     y: zone.y + zone.height - zone.streetInset - 58,
     tickerFocus: focusTicker,
-    headlines: [
-      {
-        id: `${district.id}-headline-1`,
-        title: `${focusTicker} chatter lights the ${district.name} tape`,
-        source: "Mock Wire",
-        summary: "Synthetic feeds cluster around late-cycle order flow and watchlist momentum."
-      },
-      {
-        id: `${district.id}-headline-2`,
-        title: `${district.sector} corridor sees fresh after-hours interest`,
-        source: "Night Desk",
-        summary: "Cross-district scanners show related names gaining attention under neon rain."
-      },
-      {
-        id: `${district.id}-headline-3`,
-        title: `${focusTicker} alliances ripple toward nearby blocks`,
-        source: "Street Scope",
-        summary: "Mock linkouts and scenario cards can later be replaced with real market stories."
-      },
-      {
-        id: `${district.id}-headline-4`,
-        title: `${district.name} kiosk logs rising citizen traffic`,
-        source: "District Bulletin",
-        summary: "This booth is structured for future stock-specific news streams and source metadata."
-      }
-    ]
+    headlines: districtNewsBoards[district.id].lines.map((line) => ({
+      id: line.id,
+      title: line.text,
+      source: line.source ?? "Mock Wire",
+      summary: `${focusTicker} district stream placeholder. TODO: replace with live news summaries.`
+    }))
   };
 });
+
+const pushSurface = (
+  surfaces: WorldSurface[],
+  districtId: string,
+  kind: WorldSurface["kind"],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  accent: string,
+  options: Partial<WorldSurface> = {}
+) => {
+  surfaces.push({
+    id: `${districtId}-${kind}-${surfaces.length}`,
+    districtId,
+    kind,
+    x,
+    y,
+    width,
+    height,
+    accent,
+    ...options
+  });
+};
+
+const pushStructure = (
+  structures: WorldStructure[],
+  districtId: string,
+  kind: WorldStructure["kind"],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  accent: string,
+  options: Partial<WorldStructure> = {}
+) => {
+  structures.push({
+    id: `${districtId}-${kind}-${structures.length}`,
+    districtId,
+    kind,
+    x,
+    y,
+    width,
+    height,
+    accent,
+    collidable: kind !== "railing",
+    ...options
+  });
+};
+
+const createDistrictSurfaces = (zone: DistrictZone) => {
+  const surfaces: WorldSurface[] = [];
+  const insetX = zone.x + zone.streetInset;
+  const insetY = zone.y + zone.streetInset;
+  const innerWidth = zone.width - zone.streetInset * 2;
+  const innerHeight = zone.height - zone.streetInset * 2;
+  const accent = zone.accent;
+  const roadWidth = zone.districtId === "consumer-strip" ? 86 : 72;
+  const sidewalk = 22;
+  const loopX = insetX + 74;
+  const loopY = insetY + 64;
+  const loopWidth = innerWidth - 148;
+  const loopHeight = innerHeight - 128;
+  const midX = loopX + loopWidth / 2;
+  const midY = loopY + loopHeight / 2;
+
+  pushSurface(surfaces, zone.districtId, "road", loopX, loopY, loopWidth, roadWidth, accent, { label: "MAIN LOOP", direction: "east" });
+  pushSurface(surfaces, zone.districtId, "road", loopX, loopY + loopHeight - roadWidth, loopWidth, roadWidth, accent, { label: "SOUTH LOOP", direction: "west" });
+  pushSurface(surfaces, zone.districtId, "road", loopX, loopY, roadWidth, loopHeight, accent, { label: "WEST LOOP", direction: "south" });
+  pushSurface(surfaces, zone.districtId, "road", loopX + loopWidth - roadWidth, loopY, roadWidth, loopHeight, accent, { label: "EAST LOOP", direction: "north" });
+
+  pushSurface(surfaces, zone.districtId, "road", midX - roadWidth / 2, loopY + 18, roadWidth, loopHeight - 36, accent, {
+    label: zone.districtId === "consumer-strip" ? "MARKET WAY" : "CROSS CUT",
+    direction: "south"
+  });
+  pushSurface(surfaces, zone.districtId, "road", loopX + 24, midY - roadWidth / 2, loopWidth - 48, roadWidth, accent, {
+    label: zone.districtId === "consumer-strip" ? "ARCADE RUN" : "MID STREET",
+    direction: "east"
+  });
+
+  pushSurface(surfaces, zone.districtId, "sidewalk", loopX - sidewalk, loopY - sidewalk, loopWidth + sidewalk * 2, roadWidth + sidewalk * 2, accent);
+  pushSurface(
+    surfaces,
+    zone.districtId,
+    "sidewalk",
+    loopX - sidewalk,
+    loopY + loopHeight - roadWidth - sidewalk,
+    loopWidth + sidewalk * 2,
+    roadWidth + sidewalk * 2,
+    accent
+  );
+  pushSurface(surfaces, zone.districtId, "sidewalk", loopX - sidewalk, loopY + roadWidth, roadWidth + sidewalk * 2, loopHeight - roadWidth * 2, accent);
+  pushSurface(
+    surfaces,
+    zone.districtId,
+    "sidewalk",
+    loopX + loopWidth - roadWidth - sidewalk,
+    loopY + roadWidth,
+    roadWidth + sidewalk * 2,
+    loopHeight - roadWidth * 2,
+    accent
+  );
+
+  pushSurface(surfaces, zone.districtId, "sidewalk", midX - roadWidth / 2 - sidewalk, loopY + 18, roadWidth + sidewalk * 2, loopHeight - 36, accent);
+  pushSurface(
+    surfaces,
+    zone.districtId,
+    "sidewalk",
+    loopX + 24,
+    midY - roadWidth / 2 - sidewalk,
+    loopWidth - 48,
+    roadWidth + sidewalk * 2,
+    accent
+  );
+
+  const crosswalks = [
+    [midX - 26, loopY + roadWidth - 12, 52, 24],
+    [midX - 26, loopY + loopHeight - roadWidth - 12, 52, 24],
+    [loopX + roadWidth - 12, midY - 26, 24, 52],
+    [loopX + loopWidth - roadWidth - 12, midY - 26, 24, 52]
+  ];
+  crosswalks.forEach(([x, y, width, height]) => pushSurface(surfaces, zone.districtId, "crosswalk", x, y, width, height, accent));
+
+  const alleyBlocks = [
+    [insetX + 28, insetY + 32, 72, innerHeight - 64],
+    [insetX + innerWidth - 100, insetY + 32, 72, innerHeight - 64],
+    [insetX + 120, insetY + 26, innerWidth - 240, 52],
+    [insetX + 120, insetY + innerHeight - 78, innerWidth - 240, 52]
+  ];
+  alleyBlocks.forEach(([x, y, width, height]) => pushSurface(surfaces, zone.districtId, "alley", x, y, width, height, accent));
+
+  if (zone.districtId === "energy-yard") {
+    pushSurface(surfaces, zone.districtId, "hazard", insetX + innerWidth - 182, midY - 46, 118, 92, accent, { label: "REACTOR" });
+    pushSurface(surfaces, zone.districtId, "tunnel", insetX + innerWidth - 148, midY + 84, 96, 120, accent, { label: "UNDERPASS", direction: "south" });
+  }
+
+  if (zone.districtId === "consumer-strip") {
+    pushSurface(surfaces, zone.districtId, "road", insetX + innerWidth / 2 - 44, insetY + innerHeight - 96, 88, 128, accent, {
+      label: "MALL ENTRY",
+      direction: "south"
+    });
+  }
+
+  if (zone.districtId === "chip-docks") {
+    pushSurface(surfaces, zone.districtId, "road", insetX + innerWidth / 2 - 140, insetY + 104, 280, 62, accent, {
+      label: "SKY RAMP",
+      direction: "east"
+    });
+  }
+
+  if (zone.districtId === "comms-neon-ridge") {
+    pushSurface(surfaces, zone.districtId, "road", insetX + innerWidth - 220, insetY + 112, 148, 62, accent, { label: "RIDGE WAY", direction: "north" });
+  }
+
+  return surfaces;
+};
+
+const createDistrictStructures = (zone: DistrictZone) => {
+  const structures: WorldStructure[] = [];
+  const insetX = zone.x + zone.streetInset;
+  const insetY = zone.y + zone.streetInset;
+  const innerWidth = zone.width - zone.streetInset * 2;
+  const innerHeight = zone.height - zone.streetInset * 2;
+  const accent = zone.accent;
+
+  for (let index = 0; index < 5; index += 1) {
+    pushStructure(structures, zone.districtId, "building", insetX + 104 + index * 124, insetY + 8, 94, 84 + (index % 2) * 18, accent);
+    pushStructure(
+      structures,
+      zone.districtId,
+      "shopfront",
+      insetX + 116 + index * 124,
+      insetY + 74 + (index % 2) * 18,
+      70,
+      20,
+      accent,
+      { collidable: false }
+    );
+  }
+
+  for (let index = 0; index < 4; index += 1) {
+    pushStructure(structures, zone.districtId, "building", insetX + 12, insetY + 112 + index * 118, 82, 86, accent);
+    pushStructure(structures, zone.districtId, "building", insetX + innerWidth - 96, insetY + 112 + index * 118, 82, 86, accent);
+  }
+
+  for (let index = 0; index < 4; index += 1) {
+    pushStructure(structures, zone.districtId, "fence", insetX + 118 + index * 124, insetY + innerHeight - 58, 88, 12, accent, { collidable: true });
+  }
+
+  pushStructure(structures, zone.districtId, "gate", insetX + innerWidth / 2 - 54, insetY + innerHeight - 66, 108, 18, accent);
+
+  if (zone.districtId === "energy-yard") {
+    pushStructure(structures, zone.districtId, "tunnel-mouth", insetX + innerWidth - 168, insetY + innerHeight / 2 + 66, 118, 82, accent, {
+      label: "UNDERPASS"
+    });
+    pushStructure(structures, zone.districtId, "railing", insetX + innerWidth - 184, insetY + innerHeight / 2 + 54, 138, 10, accent, { collidable: false });
+  }
+
+  if (zone.districtId === "consumer-strip") {
+    pushStructure(structures, zone.districtId, "metro-entrance", insetX + innerWidth / 2 - 72, insetY + innerHeight - 130, 144, 92, accent, {
+      label: "METRO"
+    });
+  }
+
+  if (zone.districtId === "chip-docks") {
+    pushStructure(structures, zone.districtId, "bridge", insetX + innerWidth / 2 - 150, insetY + 84, 300, 44, accent, {
+      label: "OVERPASS",
+      elevated: true
+    });
+    pushStructure(structures, zone.districtId, "railing", insetX + innerWidth / 2 - 150, insetY + 78, 300, 8, accent, { collidable: false });
+    pushStructure(structures, zone.districtId, "railing", insetX + innerWidth / 2 - 150, insetY + 128, 300, 8, accent, { collidable: false });
+  }
+
+  if (zone.districtId === "comms-neon-ridge") {
+    pushStructure(structures, zone.districtId, "bridge", insetX + innerWidth - 230, insetY + 94, 168, 36, accent, {
+      label: "RIDGE LINK",
+      elevated: true
+    });
+  }
+
+  return structures;
+};
+
+const createDistrictWalkNodes = (zone: DistrictZone) => {
+  const insetX = zone.x + zone.streetInset;
+  const insetY = zone.y + zone.streetInset;
+  const innerWidth = zone.width - zone.streetInset * 2;
+  const innerHeight = zone.height - zone.streetInset * 2;
+  const midX = insetX + innerWidth / 2;
+  const midY = insetY + innerHeight / 2;
+
+  return [
+    { x: midX, y: insetY + 118 },
+    { x: midX, y: midY - 32 },
+    { x: midX, y: midY + 92 },
+    { x: insetX + 118, y: midY },
+    { x: insetX + innerWidth - 118, y: midY },
+    { x: insetX + 168, y: insetY + innerHeight - 118 },
+    { x: insetX + innerWidth - 168, y: insetY + innerHeight - 118 }
+  ];
+};
+
+export const districtSurfaces: WorldSurface[] = districtZones.flatMap((zone) => createDistrictSurfaces(zone));
+export const districtStructures: WorldStructure[] = districtZones.flatMap((zone) => createDistrictStructures(zone));
+export const districtWalkNodes = Object.fromEntries(districtZones.map((zone) => [zone.districtId, createDistrictWalkNodes(zone)])) as Record<
+  string,
+  Array<{ x: number; y: number }>
+>;
 
 const pushProp = (
   props: WorldProp[],
@@ -374,43 +614,15 @@ const createDistrictProps = (zone: DistrictZone) => {
 export const cityProps: WorldProp[] = districtZones.flatMap((zone) => createDistrictProps(zone));
 
 export const worldColliders: WorldCollider[] = [
-  ...districtZones.flatMap((zone) => {
-    const colliders: WorldCollider[] = [];
-    const insetX = zone.x + zone.streetInset;
-    const insetY = zone.y + zone.streetInset;
-    const innerWidth = zone.width - zone.streetInset * 2;
-    const innerHeight = zone.height - zone.streetInset * 2;
-
-    for (let index = 0; index < 6; index += 1) {
-      colliders.push({
-        id: `${zone.districtId}-top-building-${index}`,
-        x: insetX + 10 + index * 112,
-        y: zone.y + 18,
-        width: 78,
-        height: 76
-      });
-    }
-
-    for (let index = 0; index < 4; index += 1) {
-      colliders.push({
-        id: `${zone.districtId}-right-building-${index}`,
-        x: zone.x + zone.width - zone.streetInset - 76,
-        y: insetY + 30 + index * 110,
-        width: 62,
-        height: 82
-      });
-    }
-
-    colliders.push({
-      id: `${zone.districtId}-plaza-core`,
-      x: insetX + innerWidth / 2 - 60,
-      y: insetY + innerHeight / 2 - 60,
-      width: 120,
-      height: 120
-    });
-
-    return colliders;
-  }),
+  ...districtStructures
+    .filter((structure) => structure.collidable)
+    .map((structure) => ({
+      id: `${structure.id}-collider`,
+      x: structure.x,
+      y: structure.y,
+      width: structure.width,
+      height: structure.height
+    })),
   ...cityProps
     .filter((prop) => prop.collidable)
     .map((prop) => ({
@@ -435,8 +647,8 @@ export const citizens: Citizen[] = districtZones.flatMap((zone, zoneIndex) =>
   Array.from({ length: zone.districtId === "consumer-strip" ? 8 : 5 }, (_, index) => ({
     id: `${zone.districtId}-citizen-${index}`,
     districtId: zone.districtId,
-    x: zone.x + zone.streetInset + 120 + ((index * 91 + zoneIndex * 33) % Math.max(180, zone.width - zone.streetInset * 2 - 140)),
-    y: zone.y + zone.streetInset + 110 + ((index * 76 + zoneIndex * 57) % Math.max(180, zone.height - zone.streetInset * 2 - 120)),
+    x: districtWalkNodes[zone.districtId][index % districtWalkNodes[zone.districtId].length].x + ((index % 2) * 18 - 9),
+    y: districtWalkNodes[zone.districtId][(index + 2) % districtWalkNodes[zone.districtId].length].y + ((index % 3) * 14 - 14),
     style: (["walker", "vendor", "broker", "runner"] as const)[(index + zoneIndex) % 4],
     color: index % 2 === 0 ? zone.accent : index % 3 === 0 ? "#FF3DF2" : "#B7FF3C",
     patrolRadius: zone.districtId === "consumer-strip" ? 64 : 42,

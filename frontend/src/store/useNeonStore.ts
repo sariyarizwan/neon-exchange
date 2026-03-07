@@ -5,7 +5,7 @@ import { avatarOptions, newsstands } from "@/mock/cityWorld";
 import { districts } from "@/mock/districts";
 import { tickers } from "@/mock/tickers";
 import { cameraTopLeftForWorldPoint, clampCameraPosition, HOME_WORLD_POINT } from "@/lib/world";
-import type { RightPanelTab, AgentPersona, EvidenceItem, FacingDirection, PlayerState, SoundState } from "@/types/store";
+import type { RightPanelTab, AgentPersona, EvidenceItem, FacingDirection, GuideState, PlayerState, SoundMode, SoundState } from "@/types/store";
 
 type ToggleKey = "showAlliances" | "showStorms" | "showRumors";
 
@@ -48,7 +48,9 @@ type NeonState = {
   camera: CameraState;
   player: PlayerState;
   sound: SoundState;
+  guide: GuideState;
   pluginMode: boolean;
+  showPoiMarkers: boolean;
   activeNewsstandDistrictId: string | null;
   scenePulse: ScenePulse;
   evidenceTimeline: EvidenceItem[];
@@ -71,10 +73,14 @@ type NeonState = {
   setAvatarId: (avatarId: string) => void;
   setSoundEnabled: (enabled: boolean) => void;
   setSoundVolume: (volume: number) => void;
+  setSoundMode: (mode: SoundMode) => void;
   setAudioBootstrapped: (bootstrapped: boolean) => void;
   setAudioNeedsGesture: (needsGesture: boolean) => void;
   setAudioPlaying: (playing: boolean) => void;
+  setGuideSpeaking: (speaking: boolean) => void;
+  setGuideMessage: (message: string | null) => void;
   setPluginMode: (active: boolean) => void;
+  setShowPoiMarkers: (active: boolean) => void;
   setActiveNewsstandDistrictId: (districtId: string | null) => void;
   focusWorldPoint: (x: number, y: number) => void;
   focusDistrict: (districtId: string) => void;
@@ -127,6 +133,7 @@ const initialEvidence: EvidenceItem[] = [
 
 const initialNewsstand = newsstands.find((entry) => entry.districtId === "consumer-strip") ?? newsstands[0];
 let overlayRestoreTimeout: number | null = null;
+const soundTrackName = (mode: SoundMode) => (mode === "guide" ? "Gemini Guide (Mock)" : "neon-rain.wav");
 
 export const useNeonStore = create<NeonState>((set, get) => ({
   selectedTickerId: "cart",
@@ -170,9 +177,15 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     bootstrapped: false,
     needsGesture: false,
     playing: false,
-    trackName: "neon-rain.wav"
+    trackName: soundTrackName("guide"),
+    mode: "guide"
+  },
+  guide: {
+    speaking: false,
+    message: "Gemini guide online. I will shadow your route through the market."
   },
   pluginMode: false,
+  showPoiMarkers: true,
   activeNewsstandDistrictId: null,
   scenePulse: {
     districtId: null,
@@ -322,6 +335,15 @@ export const useNeonStore = create<NeonState>((set, get) => ({
         volume
       }
     })),
+  setSoundMode: (mode) =>
+    set((state) => ({
+      sound: {
+        ...state.sound,
+        mode,
+        trackName: soundTrackName(mode),
+        needsGesture: state.sound.enabled ? !state.sound.bootstrapped : false
+      }
+    })),
   setAudioBootstrapped: (bootstrapped) =>
     set((state) => ({
       sound: {
@@ -343,7 +365,10 @@ export const useNeonStore = create<NeonState>((set, get) => ({
         playing
       }
     })),
+  setGuideSpeaking: (speaking) => set((state) => ({ guide: { ...state.guide, speaking } })),
+  setGuideMessage: (message) => set((state) => ({ guide: { ...state.guide, message } })),
   setPluginMode: (active) => set(() => ({ pluginMode: active })),
+  setShowPoiMarkers: (active) => set(() => ({ showPoiMarkers: active })),
   setActiveNewsstandDistrictId: (districtId) => set(() => ({ activeNewsstandDistrictId: districtId })),
   focusWorldPoint: (x, y) =>
     set((state) => {

@@ -2,17 +2,27 @@
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { districtThemes } from "@/mock/cityThemes";
-import { avatarOptions, citizens, cityProps, districtZones, newsstands, pointsOfInterest, stockNpcProfiles, stockOutboundUrls } from "@/mock/cityWorld";
+import {
+  avatarOptions,
+  citizens,
+  cityProps,
+  districtStructures,
+  districtSurfaces,
+  districtZones,
+  newsstands,
+  pointsOfInterest,
+  stockNpcProfiles,
+  stockOutboundUrls
+} from "@/mock/cityWorld";
 import { districtConnections, districts } from "@/mock/districts";
+import { districtNewsBoards, tickerNews } from "@/mock/news";
 import { tickers } from "@/mock/tickers";
-import { Button } from "@/components/ui/Button";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { cn } from "@/lib/cn";
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@/lib/world";
 import { useNeonStore } from "@/store/useNeonStore";
 import type { District } from "@/types/district";
 import type { Ticker } from "@/types/ticker";
-import type { Citizen, DistrictZone, NewsstandData, WorldProp } from "@/types/world";
+import type { DistrictZone, NewsstandData, WorldProp, WorldStructure, WorldSurface } from "@/types/world";
 import { hitTestDistrict, screenToWorld } from "./useHitTesting";
 import { useCameraControls } from "./useCameraControls";
 
@@ -44,10 +54,13 @@ type SelectedMarker = {
   color: string;
 };
 
-type WorldPanel = {
+type WorldNewsBubble = {
+  id: string;
+  kind: "ticker" | "newsstand" | "prop";
+  anchorX: number;
+  anchorY: number;
   title: string;
-  subtitle: string;
-  body: string;
+  lines: Array<{ id: string; text: string; source?: string }>;
 };
 
 type RainDrop = {
@@ -179,8 +192,7 @@ const drawPlazaCore = (
   y: number,
   size: number,
   accent: string,
-  time: number,
-  label: string
+  time: number
 ) => {
   drawPixelRect(ctx, x, y, size, size, "#0E1420");
   drawPixelFrame(ctx, x, y, size, size, hexToRgba(accent, 0.42));
@@ -204,10 +216,7 @@ const drawPlazaCore = (
   drawPixelFrame(ctx, center - 22, y + size / 2 - 22, 44, 44, hexToRgba(accent, 0.48));
   drawPixelRect(ctx, center - 8, y + size / 2 - 8, 16, 16, "#E8FBFF");
 
-  drawPixelRect(ctx, x + size / 2 - 72, y + 10, 144, 10, "#081019");
-  ctx.fillStyle = "#F6FBFF";
-  ctx.font = "bold 10px monospace";
-  ctx.fillText(label, x + size / 2 - 52, y + 18);
+  drawPixelRect(ctx, x + size / 2 - 54, y + 12, 108, 6, hexToRgba(accent, 0.14));
 };
 
 const drawCornerDressing = (
@@ -328,6 +337,30 @@ const drawCharacter = (
   ctx.restore();
 };
 
+const wrapPixelLines = (text: string, maxChars = 20) => {
+  const words = text.split(" ");
+  const lines: string[] = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars) {
+      if (current) {
+        lines.push(current);
+      }
+      current = word;
+      return;
+    }
+    current = next;
+  });
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines.slice(0, 3);
+};
+
 const buildNpcRuntimes = (): NpcRuntime[] => {
   const citizenRuntimes = citizens.map((citizen, index) => ({
     id: citizen.id,
@@ -400,40 +433,22 @@ export function CityCanvas() {
   const [hoverEntity, setHoverEntity] = useState<HoverEntity>(null);
   const [pluginPrompt, setPluginPrompt] = useState<PluginPrompt | null>(null);
   const [interactionBubble, setInteractionBubble] = useState<InteractionBubble | null>(null);
-  const [worldPanel, setWorldPanel] = useState<WorldPanel | null>(null);
-  const [showPoi, setShowPoi] = useState(true);
+  const [worldNewsBubble, setWorldNewsBubble] = useState<WorldNewsBubble | null>(null);
   const [introTickerId, setIntroTickerId] = useState<string | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<SelectedMarker | null>(null);
 
   const camera = useNeonStore((state) => state.camera);
   const player = useNeonStore((state) => state.player);
-  const sound = useNeonStore((state) => state.sound);
-  const focusMode = useNeonStore((state) => state.focusMode);
-  const overlaysDimmed = useNeonStore((state) => state.overlaysDimmed);
+  const guide = useNeonStore((state) => state.guide);
+  const showAlliances = useNeonStore((state) => state.showAlliances);
+  const showPoiMarkers = useNeonStore((state) => state.showPoiMarkers);
   const pluginMode = useNeonStore((state) => state.pluginMode);
-  const stormModeActive = useNeonStore((state) => state.stormModeActive);
-  const activeNewsstandDistrictId = useNeonStore((state) => state.activeNewsstandDistrictId);
-  const selectedDistrictId = useNeonStore((state) => state.selectedDistrictId);
-  const selectedTickerId = useNeonStore((state) => state.selectedTickerId);
-  const focusWorldPoint = useNeonStore((state) => state.focusWorldPoint);
-  const focusHome = useNeonStore((state) => state.focusHome);
   const setSelectedTickerId = useNeonStore((state) => state.setSelectedTickerId);
   const setSelectedDistrictId = useNeonStore((state) => state.setSelectedDistrictId);
-  const setSoundEnabled = useNeonStore((state) => state.setSoundEnabled);
-  const setSoundVolume = useNeonStore((state) => state.setSoundVolume);
-  const setAudioNeedsGesture = useNeonStore((state) => state.setAudioNeedsGesture);
-  const setPluginMode = useNeonStore((state) => state.setPluginMode);
-  const setAvatarId = useNeonStore((state) => state.setAvatarId);
   const setActiveNewsstandDistrictId = useNeonStore((state) => state.setActiveNewsstandDistrictId);
   const setActiveRightPanelTab = useNeonStore((state) => state.setActiveRightPanelTab);
 
   const districtsById = useMemo(() => Object.fromEntries(districts.map((district) => [district.id, district])) as Record<string, District>, []);
-  const newsByDistrict = useMemo(
-    () => Object.fromEntries(newsstands.map((stand) => [stand.districtId, stand])) as Record<string, NewsstandData>,
-    []
-  );
-  const activeNewsstand = activeNewsstandDistrictId ? newsByDistrict[activeNewsstandDistrictId] ?? null : null;
-  const questHint = districtThemes[selectedDistrictId ?? "consumer-strip"]?.questHint ?? districtThemes["consumer-strip"].questHint;
   const activeAvatar = avatarOptions.find((option) => option.id === player.avatarId) ?? avatarOptions[0];
 
   const rainDropsRef = useRef<RainDrop[]>(
@@ -460,6 +475,70 @@ export function CityCanvas() {
       setPluginPrompt(null);
     }
   }, [pluginMode]);
+
+  useEffect(() => {
+    if (!worldNewsBubble) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setWorldNewsBubble(null);
+    }, worldNewsBubble.kind === "newsstand" ? 5200 : 4200);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [worldNewsBubble]);
+
+  useEffect(() => {
+    const handleInteract = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() !== "e") {
+        return;
+      }
+
+      const nearbyStock =
+        npcRuntimeRef.current.find(
+          (npc) => npc.type === "stock" && Math.hypot(player.x - npc.x, player.y - npc.y) < 88 && npc.tickerId
+        ) ?? null;
+
+      if (nearbyStock?.tickerId) {
+        const ticker = tickers.find((entry) => entry.id === nearbyStock.tickerId);
+        if (ticker) {
+          setSelectedTickerId(ticker.id);
+          setSelectedDistrictId(ticker.districtId);
+          setActiveRightPanelTab("scenes");
+          setWorldNewsBubble({
+            id: `ticker-${ticker.id}`,
+            kind: "ticker",
+            anchorX: nearbyStock.x,
+            anchorY: nearbyStock.y - 44,
+            title: ticker.symbol,
+            lines: tickerNews[ticker.id]?.lines.slice(0, 3) ?? []
+          });
+        }
+        return;
+      }
+
+      const nearbyNewsstand = newsstands.find((stand) => Math.hypot(player.x - stand.x, player.y - stand.y) < 104) ?? null;
+      if (nearbyNewsstand) {
+        setActiveNewsstandDistrictId(nearbyNewsstand.districtId);
+        setSelectedDistrictId(nearbyNewsstand.districtId);
+        setWorldNewsBubble({
+          id: `newsstand-${nearbyNewsstand.districtId}`,
+          kind: "newsstand",
+          anchorX: nearbyNewsstand.x + 18,
+          anchorY: nearbyNewsstand.y - 76,
+          title: `${districtsById[nearbyNewsstand.districtId].name} Newsstand`,
+          lines: districtNewsBoards[nearbyNewsstand.districtId]?.lines.slice(0, 5) ?? []
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleInteract);
+    return () => {
+      window.removeEventListener("keydown", handleInteract);
+    };
+  }, [districtsById, player.x, player.y, setActiveNewsstandDistrictId, setActiveRightPanelTab, setSelectedDistrictId, setSelectedTickerId]);
 
   useEffect(
     () => () => {
@@ -538,19 +617,10 @@ export function CityCanvas() {
       drawPixelRect(ctx, x, y, zone.width, zone.height, "#101621");
       drawPixelFrame(ctx, x - 4, y - 4, zone.width + 8, zone.height + 8, hexToRgba(district.accent, 0.18 + intensity * 0.2));
 
-      drawPixelRect(ctx, x + 8, y + 8, zone.width - 16, 26, "#0A1019");
-      drawPixelRect(ctx, x + 8, y + zone.height - 34, zone.width - 16, 26, "#0A1019");
-      drawPixelRect(ctx, x + 8, y + 8, 26, zone.height - 16, "#0A1019");
-      drawPixelRect(ctx, x + zone.width - 34, y + 8, 26, zone.height - 16, "#0A1019");
-
-      for (let lane = 0; lane < zone.width; lane += 92) {
-        drawPixelRect(ctx, x + lane, y + zone.height / 2 - 2, 34, 4, "#A8B8D0");
-        drawPixelRect(ctx, x + lane, y + zone.height / 2 - 8, 18, 2, hexToRgba(district.accent, 0.18));
-      }
-      for (let lane = 0; lane < zone.height; lane += 92) {
-        drawPixelRect(ctx, x + zone.width / 2 - 2, y + lane, 4, 34, "#A8B8D0");
-        drawPixelRect(ctx, x + zone.width / 2 + 4, y + lane, 2, 18, hexToRgba(district.accent, 0.18));
-      }
+      drawPixelRect(ctx, x + 8, y + 8, zone.width - 16, 20, "#0A1019");
+      drawPixelRect(ctx, x + 8, y + zone.height - 28, zone.width - 16, 20, "#0A1019");
+      drawPixelRect(ctx, x + 8, y + 8, 20, zone.height - 16, "#0A1019");
+      drawPixelRect(ctx, x + zone.width - 28, y + 8, 20, zone.height - 16, "#0A1019");
 
       drawPixelRect(ctx, x + zone.streetInset, y + zone.streetInset, zone.width - zone.streetInset * 2, zone.height - zone.streetInset * 2, "#17202E");
 
@@ -564,22 +634,20 @@ export function CityCanvas() {
             y + zone.streetInset + tileY,
             TILE - 1,
             TILE - 1,
-            odd ? theme.floor : hexToRgba(theme.floor, 0.82)
+            odd ? theme.floor : hexToRgba(theme.floor, 0.9)
           );
-          if ((tileX / TILE + tileY / TILE) % 7 === 0) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 2, y + zone.streetInset + tileY + 22, TILE - 6, 2, hexToRgba(theme.line, 0.32));
+          if ((tileX / TILE + tileY / TILE) % 9 === 0) {
+            drawPixelRect(ctx, x + zone.streetInset + tileX + 8, y + zone.streetInset + tileY + 24, 10, 1, hexToRgba(theme.line, 0.1));
           }
           if (selector === 2) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 10, y + zone.streetInset + tileY + 6, 12, 2, hexToRgba(theme.line, 0.26));
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 12, y + zone.streetInset + tileY + 10, 8, 2, hexToRgba(theme.neon, 0.16));
+            drawPixelRect(ctx, x + zone.streetInset + tileX + 12, y + zone.streetInset + tileY + 10, 8, 1, hexToRgba(theme.neon, 0.08));
           }
           if (selector === 5) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 6, y + zone.streetInset + tileY + 6, 20, 2, hexToRgba(theme.hazard, 0.3));
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 8, y + zone.streetInset + tileY + 14, 16, 2, hexToRgba(theme.hazard, 0.18));
+            drawPixelRect(ctx, x + zone.streetInset + tileX + 7, y + zone.streetInset + tileY + 14, 16, 1, hexToRgba(theme.hazard, 0.14));
           }
           if (selector === 8) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 4, y + zone.streetInset + tileY + 18, 24, 3, hexToRgba(theme.puddle, 0.54));
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 8, y + zone.streetInset + tileY + 19, 12, 1, hexToRgba(theme.neon, 0.26));
+            drawPixelRect(ctx, x + zone.streetInset + tileX + 4, y + zone.streetInset + tileY + 18, 24, 3, hexToRgba(theme.puddle, 0.36));
+            drawPixelRect(ctx, x + zone.streetInset + tileX + 8, y + zone.streetInset + tileY + 19, 12, 1, hexToRgba(theme.neon, 0.12));
           }
         }
       }
@@ -634,7 +702,7 @@ export function CityCanvas() {
       const plazaSize = district.id === "consumer-strip" ? 236 : 196;
       const plazaX = x + zone.width / 2 - plazaSize / 2;
       const plazaY = y + zone.height / 2 - plazaSize / 2;
-      drawPlazaCore(ctx, plazaX, plazaY, plazaSize, district.accent, time, district.name);
+      drawPlazaCore(ctx, plazaX, plazaY, plazaSize, district.accent, time);
 
       const topFacadeY = y + 16;
       for (let index = 0; index < 6; index += 1) {
@@ -664,14 +732,109 @@ export function CityCanvas() {
         time
       );
 
-      drawPixelRect(ctx, x + zone.width / 2 - 72, y + 8, 144, 18, "#090E18");
-      drawPixelRect(ctx, x + zone.width / 2 - 68, y + 12, 136, 10, hexToRgba(district.accent, 0.16 + intensity * 0.24));
-      ctx.fillStyle = "#F6FBFF";
-      ctx.font = "bold 12px monospace";
-      ctx.fillText(district.name, x + zone.width / 2 - 56, y + 21);
+      drawPixelRect(ctx, x + zone.width / 2 - 44, y + 10, 88, 6, hexToRgba(district.accent, 0.12 + intensity * 0.12));
     };
 
-    const drawProp = (prop: WorldProp, screenX: number, screenY: number, time: number, effect: { type: string; until: number } | undefined) => {
+    const drawSurface = (surface: WorldSurface, cameraX: number, cameraY: number, time: number) => {
+      const x = surface.x - cameraX;
+      const y = surface.y - cameraY;
+      if (x > canvas.clientWidth + 120 || y > canvas.clientHeight + 120 || x + surface.width < -120 || y + surface.height < -120) {
+        return;
+      }
+
+      if (surface.kind === "road") {
+        drawPixelRect(ctx, x, y, surface.width, surface.height, "#161A23");
+        for (let stripe = 12; stripe < surface.width; stripe += 44) {
+          drawPixelRect(ctx, x + stripe, y + surface.height / 2 - 2, 18, 4, "#AFBACB");
+        }
+        for (let patch = 8; patch < surface.height; patch += 22) {
+          drawPixelRect(ctx, x + 8, y + patch, surface.width - 16, 1, "rgba(255,255,255,0.03)");
+        }
+      } else if (surface.kind === "sidewalk") {
+        drawPixelRect(ctx, x, y, surface.width, surface.height, "#212B39");
+        for (let tileY = 0; tileY < surface.height; tileY += 18) {
+          for (let tileX = 0; tileX < surface.width; tileX += 18) {
+            drawPixelRect(ctx, x + tileX, y + tileY, 16, 16, (tileX + tileY) % 36 === 0 ? "#263447" : "#1B2634");
+          }
+        }
+        drawPixelRect(ctx, x, y, surface.width, 4, "#42536C");
+      } else if (surface.kind === "crosswalk") {
+        drawPixelRect(ctx, x, y, surface.width, surface.height, "#1A202C");
+        if (surface.width > surface.height) {
+          for (let stripe = 2; stripe < surface.width; stripe += 12) {
+            drawPixelRect(ctx, x + stripe, y + 3, 6, surface.height - 6, "#E7EEF9");
+          }
+        } else {
+          for (let stripe = 2; stripe < surface.height; stripe += 12) {
+            drawPixelRect(ctx, x + 3, y + stripe, surface.width - 6, 6, "#E7EEF9");
+          }
+        }
+      } else if (surface.kind === "alley") {
+        drawPixelRect(ctx, x, y, surface.width, surface.height, "#0D1119");
+        drawPixelRect(ctx, x + 4, y + 4, surface.width - 8, surface.height - 8, "#131927");
+        drawPixelRect(ctx, x + surface.width / 2 - 1, y + 8, 2, surface.height - 16, hexToRgba(surface.accent, 0.16));
+      } else if (surface.kind === "tunnel") {
+        drawPixelRect(ctx, x, y, surface.width, surface.height, "#090C12");
+        drawPixelRect(ctx, x + 6, y + 6, surface.width - 12, surface.height - 12, "#0E131C");
+        drawPixelRect(ctx, x + 8, y + 8, 4, surface.height - 16, hexToRgba(surface.accent, 0.24 + Math.sin(time / 140) * 0.08));
+        drawPixelRect(ctx, x + surface.width - 12, y + 8, 4, surface.height - 16, hexToRgba(surface.accent, 0.24 + Math.sin(time / 160) * 0.08));
+        drawPixelRect(ctx, x + 18, y + surface.height - 20, surface.width - 36, 8, "rgba(80,140,180,0.16)");
+      } else if (surface.kind === "hazard") {
+        drawPixelRect(ctx, x, y, surface.width, surface.height, "#141813");
+        for (let stripe = -surface.height; stripe < surface.width; stripe += 18) {
+          drawPixelRect(ctx, x + stripe, y + surface.height / 2 - 8, 18, 8, "#111");
+          drawPixelRect(ctx, x + stripe + 8, y + surface.height / 2, 10, 8, "#A8B218");
+        }
+      }
+    };
+
+    const drawStructure = (structure: WorldStructure, cameraX: number, cameraY: number, time: number) => {
+      const x = structure.x - cameraX;
+      const y = structure.y - cameraY;
+      if (x > canvas.clientWidth + 120 || y > canvas.clientHeight + 120 || x + structure.width < -120 || y + structure.height < -120) {
+        return;
+      }
+
+      if (structure.kind === "building" || structure.kind === "shopfront") {
+        drawPixelRect(ctx, x, y, structure.width, structure.height, structure.kind === "shopfront" ? "#141C2B" : "#0B1018");
+        drawPixelFrame(ctx, x, y, structure.width, structure.height, hexToRgba(structure.accent, structure.kind === "shopfront" ? 0.22 : 0.12));
+        if (structure.kind === "building") {
+          for (let row = 8; row < structure.height - 12; row += 16) {
+            for (let col = 10; col < structure.width - 14; col += 14) {
+              drawPixelRect(ctx, x + col, y + row, 6, 6, (row + col) % 28 === 0 ? "#D8EEFF" : "#7287A6");
+            }
+          }
+        }
+      } else if (structure.kind === "fence" || structure.kind === "gate" || structure.kind === "railing") {
+        drawPixelRect(ctx, x, y, structure.width, structure.height, "#101722");
+        for (let post = 0; post < structure.width; post += 14) {
+          drawPixelRect(ctx, x + post, y, 4, structure.height, hexToRgba(structure.accent, 0.34));
+        }
+      } else if (structure.kind === "tunnel-mouth") {
+        drawPixelRect(ctx, x, y, structure.width, structure.height, "#0A0C12");
+        drawPixelRect(ctx, x + 8, y + 10, structure.width - 16, structure.height - 18, "#05070A");
+        drawPixelRect(ctx, x + 18, y + structure.height - 20, structure.width - 36, 6, hexToRgba(structure.accent, 0.2));
+      } else if (structure.kind === "bridge") {
+        drawPixelRect(ctx, x, y, structure.width, structure.height, "#222A37");
+        drawPixelRect(ctx, x, y + structure.height - 6, structure.width, 6, "#090E15");
+        drawPixelRect(ctx, x + 8, y + 8, structure.width - 16, 4, hexToRgba(structure.accent, 0.34));
+        drawPixelRect(ctx, x + 8, y + structure.height - 12, structure.width - 16, 4, hexToRgba(structure.accent, 0.34));
+      } else if (structure.kind === "metro-entrance") {
+        drawPixelRect(ctx, x, y, structure.width, structure.height, "#111722");
+        drawPixelRect(ctx, x + 8, y + 8, structure.width - 16, 18, hexToRgba(structure.accent, 0.32));
+        drawPixelRect(ctx, x + structure.width / 2 - 18, y + 30, 36, structure.height - 38, "#080C12");
+        drawPixelRect(ctx, x + structure.width / 2 - 24, y + structure.height - 18, 48, 8, "#2A3345");
+      }
+    };
+
+    const drawProp = (
+      prop: WorldProp,
+      screenX: number,
+      screenY: number,
+      time: number,
+      effect: { type: string; until: number } | undefined,
+      showLabel: boolean
+    ) => {
       const theme = zoneShadeByVariant[zoneShadeByVariant[districtZones.find((zone) => zone.districtId === prop.districtId)?.tileVariant ?? "tech"] ? districtZones.find((zone) => zone.districtId === prop.districtId)!.tileVariant : "tech"];
       const glow = effect?.type === "lamp" ? 0.7 : 0.35 + Math.sin(time / 280 + screenX / 18) * 0.08;
       const frame = billboardFramesRef.current[prop.id] ?? 0;
@@ -698,9 +861,11 @@ export function CityCanvas() {
           drawPixelRect(ctx, screenX + (prop.type === "billboard" ? 10 : 12), screenY - 10, 8, 12, "#0D1117");
           drawPixelRect(ctx, screenX - 8, screenY - 36, 44 + (prop.type === "qr-wall" ? 16 : 0), 22 + (prop.type === "qr-wall" ? 10 : 0), "#0B1220");
           drawPixelRect(ctx, screenX - 4, screenY - 32, 36 + (prop.type === "qr-wall" ? 8 : 0), 14 + (prop.type === "qr-wall" ? 6 : 0), hexToRgba(prop.accent, glow + 0.1));
-          ctx.fillStyle = "#F7FCFF";
-          ctx.font = "bold 9px monospace";
-          ctx.fillText(billboardFrameLabel(prop, frame), screenX + 2, screenY - 21);
+          if (showLabel) {
+            ctx.fillStyle = "#F7FCFF";
+            ctx.font = "bold 9px monospace";
+            ctx.fillText(billboardFrameLabel(prop, frame), screenX + 2, screenY - 21);
+          }
           break;
         case "bench":
           drawPixelRect(ctx, screenX + 2, screenY - 10, 28, 6, "#40312D");
@@ -816,29 +981,45 @@ export function CityCanvas() {
 
       drawBackground(time, width, height, currentCamera.x);
 
-      districtConnections.forEach(([fromId, toId], index) => {
-        const from = districtsById[fromId];
-        const to = districtsById[toId];
-        const fromX = from.center.x - currentCamera.x;
-        const fromY = from.center.y - currentCamera.y;
-        const toX = to.center.x - currentCamera.x;
-        const toY = to.center.y - currentCamera.y;
-        if ((fromX < -300 && toX < -300) || (fromY < -300 && toY < -300) || (fromX > width + 300 && toX > width + 300) || (fromY > height + 300 && toY > height + 300)) {
-          return;
-        }
-        ctx.strokeStyle = hexToRgba(index % 2 === 0 ? from.accent : to.accent, 0.16);
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(fromX, fromY);
-        ctx.lineTo(toX, toY);
-        ctx.stroke();
-        drawPixelRect(ctx, (fromX + toX) / 2 - 6, (fromY + toY) / 2 - 2, 12, 4, "#D7F6FF");
-      });
+      if (state.showAlliances) {
+        districtConnections.forEach(([fromId, toId], index) => {
+          const from = districtsById[fromId];
+          const to = districtsById[toId];
+          const fromX = from.center.x - currentCamera.x;
+          const fromY = from.center.y - currentCamera.y;
+          const toX = to.center.x - currentCamera.x;
+          const toY = to.center.y - currentCamera.y;
+          if (
+            (fromX < -300 && toX < -300) ||
+            (fromY < -300 && toY < -300) ||
+            (fromX > width + 300 && toX > width + 300) ||
+            (fromY > height + 300 && toY > height + 300)
+          ) {
+            return;
+          }
+          ctx.strokeStyle = hexToRgba(index % 2 === 0 ? from.accent : to.accent, 0.05);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(fromX, fromY);
+          ctx.lineTo(toX, toY);
+          ctx.stroke();
+        });
+      }
 
       districtZones.forEach((zone) => {
         const district = districtsById[zone.districtId];
         drawZone(zone, district, time, currentCamera.x, currentCamera.y);
       });
+
+      districtSurfaces.forEach((surface) => {
+        drawSurface(surface, currentCamera.x, currentCamera.y, time);
+      });
+
+      [...districtStructures]
+        .sort((left, right) => left.y - right.y)
+        .forEach((structure) => {
+          drawStructure(structure, currentCamera.x, currentCamera.y, time);
+        });
 
       cityProps.forEach((prop) => {
         if (prop.lightRadius) {
@@ -899,7 +1080,11 @@ export function CityCanvas() {
       visibleProps.sort((left, right) => left.y - right.y);
 
       visibleProps.forEach((prop) => {
-        drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id]);
+        const showLabel =
+          (hoverEntity?.kind === "prop" && hoverEntity.prop.id === prop.id) ||
+          selectedMarker?.id === prop.id ||
+          Math.hypot(state.player.x - prop.x, state.player.y - prop.y) < 96;
+        drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id], showLabel);
         if (selectedMarker?.kind !== "ticker" && selectedMarker?.id === prop.id) {
           const markerX = prop.x - currentCamera.x + prop.width / 2;
           const markerY = prop.y - currentCamera.y + 6;
@@ -988,6 +1173,17 @@ export function CityCanvas() {
         drawPixelRect(ctx, trail.x - currentCamera.x - 6, trail.y - currentCamera.y, 12, 4, `rgba(8,12,18,${trail.age * 0.35})`);
       });
 
+      const guideX = state.player.x - currentCamera.x + 34;
+      const guideY = state.player.y - currentCamera.y - 22 + Math.sin(time / 220) * 2;
+      drawLightPool(ctx, guideX, guideY + 16, 28, "#33F5FF", guide.speaking ? 0.2 : 0.1);
+      drawPixelRect(ctx, guideX - 8, guideY - 16, 16, 16, "#081019");
+      drawPixelFrame(ctx, guideX - 8, guideY - 16, 16, 16, guide.speaking ? hexToRgba("#33F5FF", 0.7) : hexToRgba("#33F5FF", 0.32));
+      drawPixelRect(ctx, guideX - 5, guideY - 13, 10, 4, "#DFFAFF");
+      drawPixelRect(ctx, guideX - 6, guideY - 8, 12, 8, guide.speaking ? "#16374A" : "#102232");
+      drawPixelRect(ctx, guideX - 3, guideY - 6, 6, 2, "#33F5FF");
+      drawPixelRect(ctx, guideX - 2, guideY + 1, 4, 4, "#33F5FF");
+      drawPixelRect(ctx, guideX - 1, guideY + 5, 2, 6, "#33F5FF");
+
       drawCharacter(
         ctx,
         state.player.x - currentCamera.x,
@@ -999,6 +1195,23 @@ export function CityCanvas() {
         state.player.facing,
         1
       );
+
+      if (guide.message) {
+        const guideLines = wrapPixelLines(guide.message.replace("Gemini Guide: ", ""), 22);
+        const bubbleWidth = 168;
+        const bubbleHeight = 16 + guideLines.length * 12;
+        const bubbleX = guideX - 18;
+        const bubbleY = guideY - 72 - bubbleHeight;
+        drawPixelRect(ctx, bubbleX, bubbleY, bubbleWidth, bubbleHeight, "#081019");
+        drawPixelFrame(ctx, bubbleX, bubbleY, bubbleWidth, bubbleHeight, hexToRgba("#33F5FF", guide.speaking ? 0.46 : 0.24));
+        drawPixelRect(ctx, bubbleX + 16, bubbleY + bubbleHeight, 12, 6, "#081019");
+        drawPixelRect(ctx, bubbleX + 20, bubbleY + bubbleHeight + 6, 6, 6, "#081019");
+        ctx.fillStyle = "#F6FBFF";
+        ctx.font = "bold 9px monospace";
+        guideLines.forEach((line, index) => {
+          ctx.fillText(line, bubbleX + 10, bubbleY + 14 + index * 11);
+        });
+      }
 
       if (stormFactor > 0.2 && time > lightningRef.current.nextAt) {
         lightningRef.current.flash = 0.22 + stormFactor * 0.1;
@@ -1030,7 +1243,7 @@ export function CityCanvas() {
         });
       }
 
-      if (showPoi) {
+      if (showPoiMarkers) {
         pointsOfInterest.forEach((poi) => {
           const x = poi.x - currentCamera.x + poi.width / 2;
           const y = poi.y - currentCamera.y - poi.height - 8;
@@ -1072,7 +1285,7 @@ export function CityCanvas() {
       window.cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
     };
-  }, [activeAvatar.body, activeAvatar.trim, activeAvatar.visor, districtsById, hoverEntity, introTickerId, selectedDistrictId, showPoi]);
+  }, [activeAvatar.body, activeAvatar.trim, activeAvatar.visor, districtsById, guide.message, guide.speaking, hoverEntity, introTickerId, showAlliances, showPoiMarkers]);
 
   const getStockRuntimeAt = (worldX: number, worldY: number) =>
     npcRuntimeRef.current.find((npc) => npc.type === "stock" && Math.hypot(worldX - npc.x, worldY - npc.y) <= 18) ?? null;
@@ -1131,6 +1344,28 @@ export function CityCanvas() {
     }, duration + 32);
   };
 
+  const openTickerBubble = (ticker: Ticker, runtimeX: number, runtimeY: number) => {
+    setWorldNewsBubble({
+      id: `ticker-${ticker.id}`,
+      kind: "ticker",
+      anchorX: runtimeX,
+      anchorY: runtimeY - 44,
+      title: ticker.symbol,
+      lines: tickerNews[ticker.id]?.lines.slice(0, 3) ?? []
+    });
+  };
+
+  const openNewsstandBubble = (stand: NewsstandData) => {
+    setWorldNewsBubble({
+      id: `newsstand-${stand.districtId}`,
+      kind: "newsstand",
+      anchorX: stand.x + 18,
+      anchorY: stand.y - 76,
+      title: `${districtsById[stand.districtId].name} Newsstand`,
+      lines: districtNewsBoards[stand.districtId]?.lines.slice(0, 5) ?? []
+    });
+  };
+
   const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     controls.onPointerMove(event);
     if (event.buttons !== 0 || controls.gestureMovedRef.current.moved) {
@@ -1142,6 +1377,7 @@ export function CityCanvas() {
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     setHoverEntity(null);
+    setWorldNewsBubble(null);
     controls.onPointerDown(event);
   };
 
@@ -1180,6 +1416,7 @@ export function CityCanvas() {
         setIntroTickerId(null);
         setPluginPrompt(pluginMode ? { ticker, x: event.clientX - rect.left, y: event.clientY - rect.top } : null);
         useNeonStore.getState().triggerDistrictPulse(district.id, "scene", 1200);
+        openTickerBubble(ticker, stockRuntime.x, stockRuntime.y);
       }, 280);
       return;
     }
@@ -1197,6 +1434,7 @@ export function CityCanvas() {
         color: districtsById[newsstand.districtId].accent
       });
       showBubble(newsstand.id, "Newsstand open", newsstand.x, newsstand.y - 34);
+      openNewsstandBubble(newsstand);
       return;
     }
 
@@ -1212,10 +1450,16 @@ export function CityCanvas() {
       });
       if (prop.landmarkTitle) {
         triggerPropEffect(prop.id, "landmark", 1200);
-        setWorldPanel({
+        setWorldNewsBubble({
+          id: `prop-${prop.id}`,
+          kind: "prop",
+          anchorX: prop.x + prop.width / 2,
+          anchorY: prop.y - prop.height - 14,
           title: prop.landmarkTitle,
-          subtitle: districtsById[prop.districtId].name,
-          body: prop.landmarkText ?? "A district landmark pulses with mock lore and future event hooks."
+          lines: [
+            { id: `${prop.id}-line-1`, text: prop.landmarkText ?? "A district landmark pulses with mock lore and future event hooks." },
+            { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} landmark. Follow the nearby streets and alleys for more activity.` }
+          ]
         });
         showBubble(prop.id, prop.label, prop.x, prop.y - prop.height - 14);
         return;
@@ -1228,10 +1472,16 @@ export function CityCanvas() {
           break;
         case "terminal":
           triggerPropEffect(prop.id, "terminal", 1000);
-          setWorldPanel({
+          setWorldNewsBubble({
+            id: `prop-${prop.id}`,
+            kind: "prop",
+            anchorX: prop.x + prop.width / 2,
+            anchorY: prop.y - prop.height - 12,
             title: "Data Node",
-            subtitle: districtsById[prop.districtId].name,
-            body: "Mock terminal uplink. Future agent feeds, market notes, and plugin outputs can render here."
+            lines: [
+              { id: `${prop.id}-line-1`, text: "Mock terminal uplink. Future agent feeds, market notes, and plugin outputs can render here." },
+              { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} node is waiting for a live city event stream.` }
+            ]
           });
           break;
         case "billboard":
@@ -1248,6 +1498,12 @@ export function CityCanvas() {
           break;
         case "newsstand":
           setActiveNewsstandDistrictId(prop.districtId);
+          {
+            const stand = newsstands.find((entry) => entry.districtId === prop.districtId);
+            if (stand) {
+              openNewsstandBubble(stand);
+            }
+          }
           break;
       }
       return;
@@ -1259,18 +1515,6 @@ export function CityCanvas() {
       setPluginPrompt(null);
     }
   };
-
-  const handleMinimapJump = (event: React.MouseEvent<HTMLButtonElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * WORLD_WIDTH;
-    const y = ((event.clientY - rect.top) / rect.height) * WORLD_HEIGHT;
-    focusWorldPoint(x, y);
-  };
-
-  const floatingCardClass = cn(
-    "pointer-events-auto rounded-2xl border border-slate-800/80 bg-slate-950/84 px-3 py-2 shadow-panel backdrop-blur-sm transition-opacity duration-300",
-    overlaysDimmed && "pointer-events-none opacity-15"
-  );
 
   return (
     <div className="relative h-full min-h-[620px] w-full overflow-hidden rounded-[1.8rem]">
@@ -1287,210 +1531,6 @@ export function CityCanvas() {
       />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(51,245,255,0.06),transparent_30%),radial-gradient(circle_at_85%_12%,rgba(255,61,242,0.08),transparent_24%)]" />
-
-      {!focusMode ? (
-        <div className="pointer-events-none absolute left-4 top-4 flex max-w-[360px] flex-col gap-3" data-ignore-camera-keys="true">
-        <div className={floatingCardClass}>
-          <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">World</div>
-          <div className="mt-1 text-lg font-semibold text-white">Living Pixel Market City</div>
-          <div className="text-xs text-slate-400">Drag to pan. Move with WASD or arrows. NPCs patrol, props react, storms change the atmosphere.</div>
-        </div>
-
-        <div className={floatingCardClass}>
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Plugin Mode</div>
-            <button
-              type="button"
-              onClick={() => setPluginMode(!pluginMode)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition",
-                pluginMode ? "border-neon-cyan/45 bg-neon-cyan/14 text-cyan-100" : "border-slate-700 bg-slate-900/80 text-slate-300"
-              )}
-            >
-              {pluginMode ? "On" : "Off"}
-            </button>
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Sound</div>
-            <button
-              type="button"
-              onClick={() => {
-                setSoundEnabled(!sound.enabled);
-                if (!sound.bootstrapped && !sound.enabled) {
-                  setAudioNeedsGesture(true);
-                }
-              }}
-              className={cn(
-                "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition",
-                sound.enabled ? "border-neon-magenta/45 bg-neon-magenta/12 text-fuchsia-100" : "border-slate-700 bg-slate-900/80 text-slate-300"
-              )}
-            >
-              {sound.enabled ? "On" : "Off"}
-            </button>
-          </div>
-          <div className="mt-3">
-            <div className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-slate-500">
-              <span>Volume</span>
-              <span>{sound.volume}</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={sound.volume}
-              onChange={(event) => setSoundVolume(Number(event.target.value))}
-              className="w-full accent-cyan-300"
-            />
-          </div>
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">POI Markers</div>
-            <button
-              type="button"
-              onClick={() => setShowPoi(!showPoi)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition",
-                showPoi ? "border-lime-400/45 bg-lime-400/12 text-lime-100" : "border-slate-700 bg-slate-900/80 text-slate-300"
-              )}
-            >
-              {showPoi ? "Shown" : "Hidden"}
-            </button>
-          </div>
-          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/76 px-2 py-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
-            SoundEnabled {String(sound.enabled)} · Volume {sound.volume} · Track {sound.trackName} · Playing {String(sound.playing)}
-          </div>
-          {sound.needsGesture ? <div className="mt-2 text-[11px] text-amber-200">Tap once to enable audio.</div> : null}
-        </div>
-
-        <div className={cn(floatingCardClass, "border-neon-cyan/20 bg-neon-cyan/8")}>
-          <div className="text-[10px] uppercase tracking-[0.16em] text-neon-cyan">Quest Hint</div>
-          <div className="mt-1 text-sm text-white">{questHint}</div>
-        </div>
-        </div>
-      ) : (
-        <div
-          className={cn(
-            "pointer-events-none absolute left-4 top-4 z-20 flex items-center gap-2 transition-opacity duration-300",
-            overlaysDimmed && "opacity-15"
-          )}
-        >
-          {selectedDistrictId ? (
-            <div className="pointer-events-auto rounded-full border border-neon-cyan/35 bg-slate-950/86 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
-              {districtsById[selectedDistrictId]?.name}
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {!focusMode ? (
-        <div className="pointer-events-none absolute bottom-4 left-4 max-w-[320px]" data-ignore-camera-keys="true">
-          <div className={floatingCardClass}>
-            <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">Avatar Picker</div>
-            <div className="flex flex-wrap gap-2">
-              {avatarOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => setAvatarId(option.id)}
-                  className={cn(
-                    "rounded-xl border px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/70",
-                    player.avatarId === option.id
-                      ? "border-neon-cyan/40 bg-neon-cyan/10 shadow-neon-cyan"
-                      : "border-slate-800 bg-slate-900/70 hover:border-slate-700"
-                  )}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="relative block h-8 w-8 rounded-md bg-slate-950/80">
-                      <span className="absolute left-1.5 top-1 h-1.5 w-5 rounded-sm" style={{ backgroundColor: option.trim }} />
-                      <span className="absolute left-1 top-2.5 h-3.5 w-6 rounded-sm" style={{ backgroundColor: option.body }} />
-                      <span className="absolute left-2 top-3.5 h-1 w-4 rounded-sm" style={{ backgroundColor: option.visor }} />
-                    </span>
-                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-white">{option.name}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="pointer-events-none absolute right-4 top-4 flex flex-col items-end gap-3" data-ignore-camera-keys="true">
-        <button
-          type="button"
-          aria-label="Jump camera using minimap"
-          onClick={handleMinimapJump}
-          className={cn(
-            "glass-panel neon-border pointer-events-auto overflow-hidden rounded-2xl p-2 text-left transition-opacity duration-300",
-            focusMode ? "h-[140px] w-[140px]" : "h-[206px] w-[240px]",
-            overlaysDimmed && "pointer-events-none opacity-15"
-          )}
-        >
-          {!focusMode ? <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">Minimap</div> : null}
-          <svg viewBox={`0 0 ${WORLD_WIDTH} ${WORLD_HEIGHT}`} className={cn("w-full rounded-xl bg-slate-950/80", focusMode ? "h-[112px]" : "h-[104px]")}>
-            <rect x="0" y="0" width={WORLD_WIDTH} height={WORLD_HEIGHT} fill="#05060A" />
-            {districtZones.map((zone) => (
-              <rect
-                key={zone.districtId}
-                x={zone.x}
-                y={zone.y}
-                width={zone.width}
-                height={zone.height}
-                fill={hexToRgba(zone.accent, zone.districtId === selectedDistrictId ? 0.42 : 0.16)}
-                stroke={zone.accent}
-                strokeWidth={zone.districtId === selectedDistrictId ? 36 : 18}
-              />
-            ))}
-            <circle cx={player.x} cy={player.y} r="42" fill="#F8FBFF" />
-            <rect x={camera.x} y={camera.y} width={camera.viewportWidth} height={camera.viewportHeight} fill="none" stroke="#F8FBFF" strokeWidth="48" rx="32" />
-          </svg>
-          {!focusMode ? (
-            <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] uppercase tracking-[0.14em] text-slate-400">
-              {Object.values(districtThemes).map((theme) => (
-                  <div key={theme.districtId} className="flex items-center gap-1">
-                    <span className="text-neon-cyan">{theme.icon}</span>
-                    <span>{districtsById[theme.districtId].name}</span>
-                  </div>
-                ))}
-            </div>
-          ) : null}
-        </button>
-
-        <div className="pointer-events-none flex items-center gap-2">
-          <Button
-            size="sm"
-            onClick={() => {
-              focusHome();
-              setSelectedMarker(null);
-            }}
-            aria-label="Return camera to home district"
-            className={cn("pointer-events-auto", overlaysDimmed && "pointer-events-none opacity-15")}
-          >
-            Home
-          </Button>
-          <button
-            type="button"
-            aria-label="Toggle ambience audio"
-            onClick={() => {
-              setSoundEnabled(!sound.enabled);
-              if (!sound.bootstrapped && !sound.enabled) {
-                setAudioNeedsGesture(true);
-              }
-            }}
-            className={cn(
-              "pointer-events-auto rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] transition",
-              sound.enabled ? "border-neon-magenta/40 bg-neon-magenta/14 text-fuchsia-100 shadow-neon-magenta" : "border-slate-700 bg-slate-950/82 text-slate-200",
-              overlaysDimmed && "pointer-events-none opacity-15"
-            )}
-            title={sound.needsGesture ? "Tap once to enable audio." : "Toggle ambience"}
-          >
-            {sound.enabled ? "♪" : "⟂"}
-          </button>
-          {focusMode && sound.needsGesture ? (
-            <div className="pointer-events-auto rounded-full border border-amber-300/30 bg-amber-300/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-100">
-              Tap once for audio
-            </div>
-          ) : null}
-        </div>
-      </div>
 
       {pluginMode && pluginPrompt ? (
         <div
@@ -1524,55 +1564,29 @@ export function CityCanvas() {
         </div>
       ) : null}
 
-      {worldPanel ? (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/35 p-6 backdrop-blur-[2px]" data-ignore-camera-keys="true">
-          <div className="w-full max-w-[520px] rounded-[1.6rem] border border-neon-magenta/25 bg-slate-950/94 p-5 shadow-panel">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.16em] text-neon-magenta">Micro Overlay</div>
-                <div className="mt-1 text-2xl font-semibold text-white">{worldPanel.title}</div>
-                <div className="mt-1 text-sm text-slate-400">{worldPanel.subtitle}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setWorldPanel(null)}
-                className="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs uppercase tracking-[0.14em] text-slate-200"
-              >
-                Close
-              </button>
-            </div>
-            <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-300">{worldPanel.body}</div>
+      {worldNewsBubble ? (
+        <div
+          className={cn(
+            "pointer-events-none absolute z-30 w-[240px] border-2 border-cyan-300/30 bg-slate-950/94 px-3 py-3 text-left shadow-[0_0_28px_rgba(51,245,255,0.14)]",
+            worldNewsBubble.kind === "newsstand" ? "w-[300px]" : "w-[240px]"
+          )}
+          style={{
+            left: worldNewsBubble.anchorX - camera.x,
+            top: worldNewsBubble.anchorY - camera.y,
+            transform: "translate(-50%, -100%)"
+          }}
+        >
+          <div className="absolute -bottom-3 left-1/2 h-3 w-3 -translate-x-1/2 border-b-2 border-r-2 border-cyan-300/30 bg-slate-950/94" />
+          <div className="mb-2 font-['Orbitron','Rajdhani','Arial_Narrow',sans-serif] text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
+            {worldNewsBubble.title}
           </div>
-        </div>
-      ) : null}
-
-      {activeNewsstand ? (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-6 backdrop-blur-[2px]" data-ignore-camera-keys="true">
-          <div className="max-h-[80vh] w-full max-w-[720px] overflow-hidden rounded-[1.6rem] border border-neon-cyan/25 bg-slate-950/94 shadow-panel">
-            <div className="flex items-start justify-between gap-4 border-b border-white/5 px-5 py-4">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-neon-cyan">District Newsstand</div>
-                <div className="mt-1 text-2xl font-semibold text-white">{districtsById[activeNewsstand.districtId].name}</div>
-                <div className="mt-1 text-sm text-slate-400">Ticker focus: {activeNewsstand.tickerFocus} · Source labels mocked for future real-world news.</div>
+          <div className="space-y-2 text-[11px] leading-5 text-slate-200">
+            {worldNewsBubble.lines.map((line) => (
+              <div key={line.id} className="rounded-xl border border-white/6 bg-white/[0.03] px-2.5 py-2">
+                <div>{line.text}</div>
+                {line.source ? <div className="mt-1 text-[9px] uppercase tracking-[0.14em] text-cyan-200/72">{line.source}</div> : null}
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveNewsstandDistrictId(null)}
-                className="rounded-full border border-slate-700 bg-slate-900/80 px-3 py-1 text-xs uppercase tracking-[0.14em] text-slate-200"
-              >
-                Close
-              </button>
-            </div>
-            <div className="grid gap-3 p-5 md:grid-cols-2">
-              {activeNewsstand.headlines.map((headline) => (
-                <article key={headline.id} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Source</div>
-                  <div className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-neon-cyan">{headline.source}</div>
-                  <div className="mt-3 text-base font-semibold text-white">{headline.title}</div>
-                  <div className="mt-2 text-sm text-slate-400">{headline.summary}</div>
-                </article>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
       ) : null}

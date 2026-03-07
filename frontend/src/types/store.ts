@@ -1,6 +1,7 @@
 export type RightPanelTab = "scenes" | "alliances" | "evidence";
 export type AgentPersona = "Market Maker" | "Whale" | "News Desk";
 export type FacingDirection = "up" | "down" | "left" | "right";
+export type SoundMode = "guide" | "music";
 
 export type SoundState = {
   enabled: boolean;
@@ -9,6 +10,12 @@ export type SoundState = {
   needsGesture: boolean;
   playing: boolean;
   trackName: string;
+  mode: SoundMode;
+};
+
+export type GuideState = {
+  speaking: boolean;
+  message: string | null;
 };
 
 export type EvidenceItem = {

@@ -99,6 +99,37 @@ export type DistrictTheme = {
   landmarkLabel: string;
 };
 
+export type WorldSurfaceKind = "road" | "sidewalk" | "crosswalk" | "alley" | "tunnel" | "hazard";
+
+export type WorldSurface = {
+  id: string;
+  districtId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  kind: WorldSurfaceKind;
+  accent: string;
+  label?: string;
+  direction?: "north" | "south" | "east" | "west";
+};
+
+export type WorldStructureKind = "building" | "fence" | "gate" | "railing" | "tunnel-mouth" | "bridge" | "metro-entrance" | "shopfront";
+
+export type WorldStructure = {
+  id: string;
+  districtId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  kind: WorldStructureKind;
+  accent: string;
+  label?: string;
+  collidable?: boolean;
+  elevated?: boolean;
+};
+
 export type WorldCollider = {
   id: string;
   x: number;
