@@ -89,72 +89,23 @@ async def get_news():
 async def neon_stream(request: Request):
     """SSE stream optimized for the frontend.
 
-    Emits neon-formatted market data (keyed by frontend ticker IDs) and news
-    every 2 seconds. Does NOT run the heavy agent pipeline -- use /stream for that.
+    Emits pre-computed neon-formatted market data (keyed by frontend ticker IDs)
+    every 2 seconds. Zero computation — reads pre-serialized JSON from cache.
+    Does NOT run the heavy agent pipeline — use /stream for that.
     """
-    from services.news_feed import news_feed_service
-    from config.ticker_mapping import TICKER_BY_REAL
 
     async def event_generator():
-        tick_count = 0
         while True:
             if await request.is_disconnected():
                 break
 
-            market_data_service.generate_tick()
-            tickers = market_data_service.get_all_tickers()
-
-            # Build neon-format ticker map
-            neon_tickers = {}
-            for t in tickers:
-                change = t.change_pct
-                trend = "up" if change > 0.3 else ("down" if change < -0.3 else "flat")
-                mood = "erratic" if abs(change) > 3 else ("confident" if change > 0.5 else "nervous")
-                regime = "storm" if t.volatility_regime == "extreme" else ("choppy" if t.volatility_regime in ("high", "normal") else "calm")
-
-                neon_tickers[t.neon_id] = {
-                    "neonId": t.neon_id,
-                    "neonSymbol": t.neon_symbol,
-                    "price": t.price,
-                    "changePct": t.change_pct,
-                    "trend": trend,
-                    "mood": mood,
-                    "regime": regime,
-                    "momentum": t.momentum,
-                }
-
-            # Include fresh news every 5 ticks
-            news = []
-            if tick_count % 5 == 0:
-                news = news_feed_service.get_recent(5)
-
-            payload = {
-                "tickers": neon_tickers,
-                "news": news,
-                "tick": tick_count,
-            }
-
             yield {
                 "event": "neon_update",
-                "data": json.dumps(payload, default=str),
+                "data": snapshot_cache.snapshot.neon_stream_json,
             }
 
-            tick_count += 1
             await asyncio.sleep(2)
 
     return EventSourceResponse(event_generator())
 
 
-def _mood(tickers) -> str:
-    if not tickers:
-        return "neutral"
-    avg = sum(t.change_pct for t in tickers) / len(tickers)
-    if avg > 2:
-        return "euphoric"
-    elif avg > 0.5:
-        return "bullish"
-    elif avg < -2:
-        return "fearful"
-    elif avg < -0.5:
-        return "bearish"
-    return "cautious"

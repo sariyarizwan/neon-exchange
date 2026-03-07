@@ -35,57 +35,12 @@ async def get_districts():
 
 @router.get("/neon-state")
 async def get_neon_state():
-    """Return market data keyed by frontend neon ticker IDs.
+    """Return market data keyed by frontend neon ticker IDs (from pre-computed cache).
 
     Maps backend real-symbol data to the frontend's fictional ticker format
     so the frontend can look up live prices by its own ticker IDs (nvx, qntm, etc.).
     """
-    tickers = market_data_service.get_all_tickers()
-    result: dict[str, dict] = {}
-    for t in tickers:
-        change = t.change_pct
-        if change > 0.3:
-            trend = "up"
-        elif change < -0.3:
-            trend = "down"
-        else:
-            trend = "flat"
-
-        if abs(change) > 3:
-            mood = "erratic"
-        elif change > 0.5:
-            mood = "confident"
-        else:
-            mood = "nervous"
-
-        regime = "calm"
-        if t.volatility_regime == "extreme":
-            regime = "storm"
-        elif t.volatility_regime in ("high", "normal"):
-            regime = "choppy"
-
-        result[t.neon_id] = {
-            "neonId": t.neon_id,
-            "neonSymbol": t.neon_symbol,
-            "realSymbol": t.symbol,
-            "name": t.name,
-            "price": t.price,
-            "changePct": t.change_pct,
-            "volume": t.volume,
-            "trend": trend,
-            "mood": mood,
-            "regime": regime,
-            "momentum": t.momentum,
-            "volatilityRegime": t.volatility_regime,
-            "districtId": t.district_id,
-            "sector": t.sector,
-        }
-
-    return {
-        "tickers": result,
-        "marketMood": _compute_market_mood(tickers),
-        "isLive": market_data_service.is_live,
-    }
+    return snapshot_cache.snapshot.neon_state
 
 
 @router.post("/tick")
