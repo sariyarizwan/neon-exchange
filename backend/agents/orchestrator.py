@@ -10,6 +10,7 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from memory.shared_state import shared_memory
+from services.cache import snapshot_cache
 from services.market_data import market_data_service
 from services.news_feed import news_feed_service
 
@@ -21,19 +22,18 @@ _session_created = False
 
 
 def _build_market_context() -> str:
-    """Build a compact market context string for agent consumption."""
-    tickers = market_data_service.get_all_tickers()
+    """Build a compact market context string for agent consumption (from cache)."""
+    snap = snapshot_cache.snapshot
     ticker_data = []
-    for t in tickers:
+    for t in snap.all_tickers:
         ticker_data.append(
-            f"{t.symbol}: ${t.price:.2f} ({t.change_pct:+.1f}%) vol={t.volume} "
-            f"trend={t.trend} momentum={t.momentum:.2f} volatility={t.volatility_regime}"
+            f"{t['symbol']}: ${t['price']:.2f} ({t['change_pct']:+.1f}%) vol={t['volume']} "
+            f"trend={t['trend']} momentum={t['momentum']:.2f} volatility={t['volatility_regime']}"
         )
 
-    news = news_feed_service.get_recent(5)
-    news_lines = [f"- {n['headline']} [{n['severity']}]" for n in news]
+    news_lines = [f"- {n['headline']} [{n['severity']}]" for n in snap.news_feed[:5]]
 
-    return (
+    ctx = (
         "CURRENT MARKET STATE:\n"
         + "\n".join(ticker_data)
         + "\n\nRECENT NEWS:\n"
@@ -42,6 +42,26 @@ def _build_market_context() -> str:
         "industrials-foundry(industrials), consumer-strip(consumer), "
         "crypto-alley(crypto), bio-dome(healthcare), comms-neon-ridge(telecom)"
     )
+
+    # Append signals summary if available
+    signals = snap.signals
+    if signals.get("sector_strength"):
+        strength_lines = [
+            f"  {s}: strength={d['strength']:.2f} rank={d['rank']} {d['trend']}"
+            for s, d in signals["sector_strength"].items()
+        ]
+        ctx += "\n\nSECTOR STRENGTH:\n" + "\n".join(strength_lines)
+    if signals.get("top_correlations"):
+        corr_lines = [
+            f"  {c['a']} <-> {c['b']}: {c['r']:.2f}"
+            for c in signals["top_correlations"][:5]
+        ]
+        ctx += "\n\nTOP CORRELATIONS:\n" + "\n".join(corr_lines)
+    if signals.get("breadth"):
+        b = signals["breadth"]
+        ctx += f"\n\nMARKET BREADTH: {b.get('advancers', 0)} up / {b.get('decliners', 0)} down"
+
+    return ctx
 
 
 # --- Tool functions injected into agents ---
@@ -52,12 +72,11 @@ def get_market_data() -> dict:
     Returns:
         dict: Market data with ticker states and district information.
     """
-    tickers = market_data_service.get_all_tickers()
+    snap = snapshot_cache.snapshot
     return {
-        "tickers": [t.model_dump() for t in tickers],
+        "tickers": snap.all_tickers,
         "districts": {
-            did: [t.model_dump() for t in market_data_service.get_district_tickers(did)]
-            for did in market_data_service.district_map
+            did: d["tickers"] for did, d in snap.district_summaries.items()
         },
     }
 
@@ -68,18 +87,19 @@ def get_news_feed() -> dict:
     Returns:
         dict: Recent news items with headline, sector, severity, and affected tickers.
     """
-    news_feed_service.generate_headlines(3)
-    return {"headlines": news_feed_service.get_recent(10)}
+    return {"headlines": snapshot_cache.snapshot.news_feed}
 
 
 def get_correlation_context() -> dict:
     """Retrieves current market state and agent conclusions for correlation analysis.
 
     Returns:
-        dict: Market state and any existing agent analysis results.
+        dict: Market state, signals, and any existing agent analysis results.
     """
+    snap = snapshot_cache.snapshot
     return {
         "market": get_market_data(),
+        "signals": snap.signals,
         "agent_conclusions": shared_memory.agent_conclusions,
     }
 
@@ -209,10 +229,7 @@ async def run_orchestrator(query: str, context: dict | None) -> dict:
         )
         _session_created = True
 
-    # Generate fresh market data and news before each run
-    market_data_service.generate_tick()
-    news_feed_service.generate_headlines(5)
-
+    # Cache handles tick generation; just read current state
     market_context = _build_market_context()
     full_query = f"{query}\n\n{market_context}"
 
