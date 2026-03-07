@@ -48,6 +48,15 @@ class WorldSnapshot:
     # Derived signals (populated by signals.py)
     signals: dict = field(default_factory=dict)
 
+    # Neon-format data (frontend-ready, keyed by neon_id)
+    neon_tickers: dict[str, dict] = field(default_factory=dict)
+    neon_state: dict = field(default_factory=dict)
+    neon_state_json: str = "{}"
+    neon_stream_json: str = "{}"  # pre-serialized SSE payload
+
+    # Rich district states (weather/traffic/mood/glow from signals)
+    district_states: list[dict] = field(default_factory=list)
+
     # World bootstrap (full state for SSE)
     bootstrap: dict = field(default_factory=dict)
     bootstrap_json: str = "{}"
@@ -82,6 +91,55 @@ def _market_mood(tickers: list[dict]) -> str:
     elif avg < -0.5:
         return "bearish"
     return "cautious"
+
+
+def _neon_trend(change_pct: float) -> str:
+    if change_pct > 0.3:
+        return "up"
+    elif change_pct < -0.3:
+        return "down"
+    return "flat"
+
+
+def _neon_mood(change_pct: float) -> str:
+    if abs(change_pct) > 3:
+        return "erratic"
+    elif change_pct > 0.5:
+        return "confident"
+    return "nervous"
+
+
+def _neon_regime(volatility_regime: str) -> str:
+    if volatility_regime == "extreme":
+        return "storm"
+    elif volatility_regime in ("high", "normal"):
+        return "choppy"
+    return "calm"
+
+
+def _regime_to_weather(regime: str) -> str:
+    return {"calm": "clear", "normal": "rain", "choppy": "fog", "storm": "storm"}.get(
+        regime, "rain"
+    )
+
+
+def _volume_to_traffic(tickers: list[dict]) -> str:
+    if not tickers:
+        return "low"
+    avg_vol = sum(t.get("volume", 0) for t in tickers) / len(tickers)
+    if avg_vol > 3_000_000:
+        return "gridlock"
+    elif avg_vol > 1_500_000:
+        return "heavy"
+    elif avg_vol > 500_000:
+        return "normal"
+    return "low"
+
+
+def _strength_to_glow(strength: float) -> float:
+    """Normalize sector strength to 0-1 glow intensity."""
+    # Map -5..+5 range to 0..1
+    return max(0.0, min(1.0, (strength + 5) / 10))
 
 
 class SnapshotCache:
@@ -204,10 +262,82 @@ class SnapshotCache:
             s: d["rank"] for s, d in signals.get("sector_strength", {}).items()
         }
 
+        # --- Neon-format data (frontend-ready) ---
+        # Build alliance map from correlations
+        alliance_map: dict[str, list[str]] = {}
+        corr_matrix = signals.get("correlations", {}).get("matrix", {})
+        for sym in corr_matrix:
+            pairs = [
+                (other, r)
+                for other, r in corr_matrix[sym].items()
+                if other != sym and abs(r) > 0.3
+            ]
+            pairs.sort(key=lambda p: abs(p[1]), reverse=True)
+            alliance_map[sym] = [p[0] for p in pairs[:3]]
+
+        neon_tickers: dict[str, dict] = {}
+        for td in all_tickers:
+            neon_id = td.get("neon_id", "")
+            if not neon_id:
+                continue
+            change = td.get("change_pct", 0)
+            sym = td.get("symbol", "")
+            neon_tickers[neon_id] = {
+                "neonId": neon_id,
+                "neonSymbol": td.get("neon_symbol", ""),
+                "realSymbol": sym,
+                "name": td.get("name", ""),
+                "price": td.get("price", 0),
+                "changePct": change,
+                "volume": td.get("volume", 0),
+                "trend": _neon_trend(change),
+                "mood": _neon_mood(change),
+                "regime": _neon_regime(td.get("volatility_regime", "normal")),
+                "momentum": td.get("momentum", 0),
+                "volatilityRegime": td.get("volatility_regime", "normal"),
+                "districtId": td.get("district_id", ""),
+                "sector": td.get("sector", ""),
+                "alliances": alliance_map.get(sym, []),
+            }
+
+        neon_state = {
+            "tickers": neon_tickers,
+            "marketMood": mood,
+            "isLive": market_data_service.is_live,
+        }
+
+        # Neon stream payload (compact — sent every 2s via SSE)
+        neon_stream_payload = {
+            "tickers": neon_tickers,
+            "news": news[:5],
+            "tick": self._rebuild_count,
+        }
+
+        # --- Rich district states (weather/traffic/mood/glow from signals) ---
+        district_regimes = signals.get("regimes", {}).get("districts", {})
+        sector_strength = signals.get("sector_strength", {})
+
+        district_states: list[dict] = []
+        for dc in DISTRICTS:
+            dist_tickers = [t for t in all_tickers if t.get("district_id") == dc.id]
+            regime = district_regimes.get(dc.id, "normal")
+            strength = sector_strength.get(dc.sector, {}).get("strength", 0.0)
+
+            district_states.append({
+                "district_id": dc.id,
+                "name": dc.name,
+                "sector": dc.sector,
+                "weather": _regime_to_weather(regime),
+                "traffic": _volume_to_traffic(dist_tickers),
+                "mood": district_summaries[dc.id]["mood"],
+                "glow_intensity": round(_strength_to_glow(strength), 2),
+                "active_tickers": [t.get("neon_id", "") for t in dist_tickers],
+            })
+
         # Bootstrap (what SSE emits and /api/world/state returns)
         bootstrap = {
             "market_state": market_state,
-            "districts": list(district_summaries.values()),
+            "districts": district_states,
             "scenarios": [],
             "recent_news": news,
         }
@@ -216,6 +346,8 @@ class SnapshotCache:
         all_tickers_json = json.dumps(all_tickers, default=str)
         districts_json = json.dumps(district_summaries, default=str)
         market_state_json = json.dumps(market_state, default=str)
+        neon_state_json = json.dumps(neon_state, default=str)
+        neon_stream_json = json.dumps(neon_stream_payload, default=str)
         bootstrap_json = json.dumps(bootstrap, default=str)
 
         rebuild_ms = (time.perf_counter() - t0) * 1000
@@ -233,6 +365,11 @@ class SnapshotCache:
         snap.ticker_history = ticker_history
         snap.news_feed = news
         snap.signals = signals
+        snap.neon_tickers = neon_tickers
+        snap.neon_state = neon_state
+        snap.neon_state_json = neon_state_json
+        snap.neon_stream_json = neon_stream_json
+        snap.district_states = district_states
         snap.bootstrap = bootstrap
         snap.bootstrap_json = bootstrap_json
         snap.timestamp = now
