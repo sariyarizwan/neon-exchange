@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { districtThemes } from "@/mock/cityThemes";
 import { avatarOptions, citizens, cityProps, districtZones, newsstands, pointsOfInterest, stockNpcProfiles, stockOutboundUrls } from "@/mock/cityWorld";
-import { districts } from "@/mock/districts";
+import { districtConnections, districts } from "@/mock/districts";
 import { tickers } from "@/mock/tickers";
 import { Button } from "@/components/ui/Button";
 import { Tooltip } from "@/components/ui/Tooltip";
@@ -143,6 +143,139 @@ const drawLightPool = (ctx: CanvasRenderingContext2D, x: number, y: number, radi
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fill();
+};
+
+const drawFacadeBlock = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  accent: string,
+  base = "#0D1320"
+) => {
+  drawPixelRect(ctx, x, y, width, height, base);
+  drawPixelRect(ctx, x + 4, y + 4, width - 8, 10, hexToRgba(accent, 0.14));
+  drawPixelRect(ctx, x + 6, y + height - 8, width - 12, 3, "#05070C");
+  for (let row = 0; row < height - 24; row += 14) {
+    for (let col = 0; col < width - 16; col += 14) {
+      drawPixelRect(ctx, x + 8 + col, y + 18 + row, 7, 7, row % 28 === 0 ? "#D7EEFF" : "#7D96B3");
+    }
+  }
+};
+
+const drawPlazaCore = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  accent: string,
+  time: number,
+  label: string
+) => {
+  drawPixelRect(ctx, x, y, size, size, "#0E1420");
+  drawPixelFrame(ctx, x, y, size, size, hexToRgba(accent, 0.42));
+  drawPixelRect(ctx, x + 8, y + 8, size - 16, size - 16, "#101A28");
+
+  for (let tileY = 0; tileY < size - 32; tileY += 16) {
+    for (let tileX = 0; tileX < size - 32; tileX += 16) {
+      const odd = ((tileX + tileY) / 16) % 2 === 0;
+      drawPixelRect(ctx, x + 16 + tileX, y + 16 + tileY, 14, 14, odd ? "#142132" : "#17283C");
+      if ((tileX + tileY) % 48 === 0) {
+        drawPixelRect(ctx, x + 20 + tileX, y + 22 + tileY, 6, 2, hexToRgba(accent, 0.28));
+      }
+    }
+  }
+
+  const pulse = 0.18 + Math.sin(time / 220) * 0.08;
+  const center = x + size / 2;
+  drawPixelRect(ctx, center - 40, y + size / 2 - 6, 80, 12, hexToRgba(accent, pulse + 0.12));
+  drawPixelRect(ctx, center - 6, y + size / 2 - 40, 12, 80, hexToRgba(accent, pulse + 0.12));
+  drawPixelRect(ctx, center - 22, y + size / 2 - 22, 44, 44, "#09111C");
+  drawPixelFrame(ctx, center - 22, y + size / 2 - 22, 44, 44, hexToRgba(accent, 0.48));
+  drawPixelRect(ctx, center - 8, y + size / 2 - 8, 16, 16, "#E8FBFF");
+
+  drawPixelRect(ctx, x + size / 2 - 72, y + 10, 144, 10, "#081019");
+  ctx.fillStyle = "#F6FBFF";
+  ctx.font = "bold 10px monospace";
+  ctx.fillText(label, x + size / 2 - 52, y + 18);
+};
+
+const drawCornerDressing = (
+  ctx: CanvasRenderingContext2D,
+  tileVariant: DistrictZone["tileVariant"],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  accent: string,
+  time: number
+) => {
+  const corners = [
+    [x + 18, y + 18],
+    [x + width - 116, y + 18],
+    [x + 18, y + height - 104],
+    [x + width - 116, y + height - 104]
+  ];
+
+  corners.forEach(([cornerX, cornerY], index) => {
+    drawPixelRect(ctx, cornerX, cornerY, 98, 86, "#0A101A");
+    drawPixelFrame(ctx, cornerX, cornerY, 98, 86, hexToRgba(accent, 0.18));
+    drawPixelRect(ctx, cornerX + 8, cornerY + 8, 82, 10, hexToRgba(accent, 0.14 + (index % 2) * 0.06));
+
+    switch (tileVariant) {
+      case "tech":
+        drawPixelRect(ctx, cornerX + 14, cornerY + 26, 22, 44, "#111A2C");
+        drawPixelRect(ctx, cornerX + 42, cornerY + 20, 18, 50, "#121F34");
+        drawPixelRect(ctx, cornerX + 66, cornerY + 30, 14, 36, "#101A28");
+        drawPixelRect(ctx, cornerX + 20, cornerY + 34, 10, 4, hexToRgba(accent, 0.4));
+        drawPixelRect(ctx, cornerX + 48, cornerY + 28, 6, 24, "#D8F7FF");
+        break;
+      case "finance":
+        drawPixelRect(ctx, cornerX + 16, cornerY + 24, 18, 48, "#161C2D");
+        drawPixelRect(ctx, cornerX + 40, cornerY + 16, 20, 56, "#181F31");
+        drawPixelRect(ctx, cornerX + 66, cornerY + 26, 14, 42, "#131828");
+        drawPixelRect(ctx, cornerX + 14, cornerY + 74, 68, 4, hexToRgba("#F6D780", 0.32));
+        break;
+      case "energy":
+        drawPixelRect(ctx, cornerX + 18, cornerY + 24, 58, 14, "#161E1E");
+        drawPixelRect(ctx, cornerX + 24, cornerY + 42, 10, 22, hexToRgba(accent, 0.4));
+        drawPixelRect(ctx, cornerX + 42, cornerY + 34, 20, 28, "#0E1615");
+        drawPixelRect(ctx, cornerX + 18, cornerY + 68, 58, 4, hexToRgba("#B7FF3C", 0.26));
+        break;
+      case "industrial":
+        drawPixelRect(ctx, cornerX + 16, cornerY + 30, 22, 20, "#2A2325");
+        drawPixelRect(ctx, cornerX + 42, cornerY + 22, 18, 28, "#31272D");
+        drawPixelRect(ctx, cornerX + 64, cornerY + 34, 16, 18, "#382A24");
+        drawPixelRect(ctx, cornerX + 18, cornerY + 56, 60, 6, hexToRgba("#FF875C", 0.22));
+        break;
+      case "consumer":
+        drawPixelRect(ctx, cornerX + 14, cornerY + 26, 68, 18, "#21122E");
+        drawPixelRect(ctx, cornerX + 18, cornerY + 30, 60, 10, hexToRgba(accent, 0.32 + Math.sin(time / 180 + index) * 0.08));
+        drawPixelRect(ctx, cornerX + 22, cornerY + 50, 14, 20, "#171D2A");
+        drawPixelRect(ctx, cornerX + 44, cornerY + 50, 12, 20, "#171D2A");
+        break;
+      case "crypto":
+        drawPixelRect(ctx, cornerX + 16, cornerY + 24, 64, 20, "#12202B");
+        drawPixelRect(ctx, cornerX + 20, cornerY + 28, 56, 12, hexToRgba(accent, 0.28));
+        drawPixelRect(ctx, cornerX + 26, cornerY + 52, 12, 12, "#E7FCFF");
+        drawPixelRect(ctx, cornerX + 46, cornerY + 52, 12, 12, "#0D1420");
+        drawPixelRect(ctx, cornerX + 66, cornerY + 52, 8, 12, "#E7FCFF");
+        break;
+      case "bio":
+        drawPixelRect(ctx, cornerX + 18, cornerY + 24, 22, 18, "#11221B");
+        drawPixelRect(ctx, cornerX + 44, cornerY + 24, 22, 18, "#143126");
+        drawPixelRect(ctx, cornerX + 28, cornerY + 48, 28, 16, hexToRgba(accent, 0.22));
+        drawPixelRect(ctx, cornerX + 34, cornerY + 44, 16, 6, "#C9FFE4");
+        break;
+      case "comms":
+        drawPixelRect(ctx, cornerX + 26, cornerY + 16, 6, 48, "#111827");
+        drawPixelRect(ctx, cornerX + 50, cornerY + 22, 6, 42, "#111827");
+        drawPixelRect(ctx, cornerX + 20, cornerY + 20, 18, 6, hexToRgba(accent, 0.34));
+        drawPixelRect(ctx, cornerX + 44, cornerY + 28, 18, 6, hexToRgba(accent, 0.34));
+        break;
+    }
+  });
 };
 
 const drawCharacter = (
@@ -385,14 +518,23 @@ export function CityCanvas() {
       const pulsing = district.id === useNeonStore.getState().scenePulse.districtId;
       const intensity = pulsing ? 0.68 : selected ? 0.44 : 0.24;
 
-      drawPixelRect(ctx, x - 42, y - 42, zone.width + 84, zone.height + 84, "#0C111A");
+      drawPixelRect(ctx, x - 54, y - 54, zone.width + 108, zone.height + 108, "#0B0F16");
+      drawPixelRect(ctx, x - 20, y - 20, zone.width + 40, zone.height + 40, "#0E121A");
       drawPixelRect(ctx, x, y, zone.width, zone.height, "#101621");
+      drawPixelFrame(ctx, x - 4, y - 4, zone.width + 8, zone.height + 8, hexToRgba(district.accent, 0.18 + intensity * 0.2));
+
+      drawPixelRect(ctx, x + 8, y + 8, zone.width - 16, 26, "#0A1019");
+      drawPixelRect(ctx, x + 8, y + zone.height - 34, zone.width - 16, 26, "#0A1019");
+      drawPixelRect(ctx, x + 8, y + 8, 26, zone.height - 16, "#0A1019");
+      drawPixelRect(ctx, x + zone.width - 34, y + 8, 26, zone.height - 16, "#0A1019");
 
       for (let lane = 0; lane < zone.width; lane += 92) {
         drawPixelRect(ctx, x + lane, y + zone.height / 2 - 2, 34, 4, "#A8B8D0");
+        drawPixelRect(ctx, x + lane, y + zone.height / 2 - 8, 18, 2, hexToRgba(district.accent, 0.18));
       }
       for (let lane = 0; lane < zone.height; lane += 92) {
         drawPixelRect(ctx, x + zone.width / 2 - 2, y + lane, 4, 34, "#A8B8D0");
+        drawPixelRect(ctx, x + zone.width / 2 + 4, y + lane, 2, 18, hexToRgba(district.accent, 0.18));
       }
 
       drawPixelRect(ctx, x + zone.streetInset, y + zone.streetInset, zone.width - zone.streetInset * 2, zone.height - zone.streetInset * 2, "#17202E");
@@ -431,6 +573,8 @@ export function CityCanvas() {
       drawPixelRect(ctx, x + zone.streetInset, y + zone.height - zone.streetInset - 18, zone.width - zone.streetInset * 2, 18, theme.line);
       drawPixelRect(ctx, x + zone.streetInset, y + zone.streetInset, 18, zone.height - zone.streetInset * 2, theme.line);
       drawPixelRect(ctx, x + zone.width - zone.streetInset - 18, y + zone.streetInset, 18, zone.height - zone.streetInset * 2, theme.line);
+      drawPixelRect(ctx, x + zone.streetInset + 18, y + zone.streetInset + 18, zone.width - zone.streetInset * 2 - 36, 10, "#0A1018");
+      drawPixelRect(ctx, x + zone.streetInset + 18, y + zone.height - zone.streetInset - 28, zone.width - zone.streetInset * 2 - 36, 10, "#0A1018");
 
       if (zone.tileVariant === "energy") {
         for (let index = 0; index < 6; index += 1) {
@@ -472,34 +616,38 @@ export function CityCanvas() {
         drawPixelRect(ctx, px + 4, py + 4, 40, 4, hexToRgba(theme.neon, shimmer));
       });
 
-      const plazaX = x + zone.width / 2 - 92;
-      const plazaY = y + zone.height / 2 - 92;
-      drawPixelRect(ctx, plazaX, plazaY, 184, 184, "#101827");
-      drawPixelFrame(ctx, plazaX, plazaY, 184, 184, hexToRgba(district.accent, 0.34 + intensity));
-      drawPixelRect(ctx, plazaX + 8, plazaY + 8, 168, 14, hexToRgba(district.accent, 0.1 + intensity * 0.16));
-      drawPixelRect(ctx, plazaX + 8, plazaY + 162, 168, 14, hexToRgba(district.accent, 0.08 + intensity * 0.14));
+      const plazaSize = district.id === "consumer-strip" ? 236 : 196;
+      const plazaX = x + zone.width / 2 - plazaSize / 2;
+      const plazaY = y + zone.height / 2 - plazaSize / 2;
+      drawPlazaCore(ctx, plazaX, plazaY, plazaSize, district.accent, time, district.name);
 
-      const topBuildings = 6;
-      for (let index = 0; index < topBuildings; index += 1) {
-        const buildingX = x + zone.streetInset + 12 + index * 112;
-        const buildingY = y + 18;
-        const buildingW = 72 + (index % 2) * 10;
-        const buildingH = 54 + (index % 3) * 16;
-        drawPixelRect(ctx, buildingX, buildingY, buildingW, buildingH, theme.shop);
-        drawPixelRect(ctx, buildingX + 6, buildingY + 6, buildingW - 12, 10, hexToRgba(district.accent, 0.18 + Math.sin(time / 240 + index) * 0.06));
-        drawPixelRect(ctx, buildingX + 18, buildingY + buildingH - 14, 20, 10, "#080C14");
-        for (let windowIndex = 0; windowIndex < 3; windowIndex += 1) {
-          drawPixelRect(ctx, buildingX + 10 + windowIndex * 18, buildingY + 24, 8, 8, "#D2EDFF");
-        }
+      const topFacadeY = y + 16;
+      for (let index = 0; index < 6; index += 1) {
+        const buildingX = x + zone.streetInset + 8 + index * 108;
+        drawFacadeBlock(ctx, buildingX, topFacadeY, 78, 62 + (index % 2) * 10, district.accent, theme.shop);
+      }
+
+      const leftFacadeX = x + 18;
+      for (let index = 0; index < 4; index += 1) {
+        drawFacadeBlock(ctx, leftFacadeX, y + zone.streetInset + 26 + index * 114, 54, 86, district.accent, "#0E1522");
       }
 
       for (let index = 0; index < 4; index += 1) {
         const buildingX = x + zone.width - zone.streetInset - 74;
         const buildingY = y + zone.streetInset + 30 + index * 110;
-        drawPixelRect(ctx, buildingX, buildingY, 56, 72, "#10192B");
-        drawPixelRect(ctx, buildingX + 8, buildingY + 8, 40, 12, hexToRgba(district.accent, 0.22 + Math.sin(time / 200 + index) * 0.05));
-        drawPixelRect(ctx, buildingX + 18, buildingY + 46, 18, 20, "#090C13");
+        drawFacadeBlock(ctx, buildingX, buildingY, 56, 76, district.accent, "#10192B");
       }
+
+      drawCornerDressing(
+        ctx,
+        zone.tileVariant,
+        x + zone.streetInset + 8,
+        y + zone.streetInset + 8,
+        zone.width - zone.streetInset * 2 - 16,
+        zone.height - zone.streetInset * 2 - 16,
+        district.accent,
+        time
+      );
 
       drawPixelRect(ctx, x + zone.width / 2 - 72, y + 8, 144, 18, "#090E18");
       drawPixelRect(ctx, x + zone.width / 2 - 68, y + 12, 136, 10, hexToRgba(district.accent, 0.16 + intensity * 0.24));
@@ -518,9 +666,11 @@ export function CityCanvas() {
 
       switch (prop.type) {
         case "vending-machine":
-          drawPixelRect(ctx, screenX + offsetX, screenY - 26, 22, 28, "#151E2E");
-          drawPixelRect(ctx, screenX + offsetX + 3, screenY - 22, 16, 18, hexToRgba(prop.accent, 0.45 + flicker));
-          drawPixelRect(ctx, screenX + offsetX + 6, screenY - 2, 10, 4, "#D7F6FF");
+          drawPixelRect(ctx, screenX + offsetX, screenY - 28, 24, 30, "#151E2E");
+          drawPixelRect(ctx, screenX + offsetX + 3, screenY - 24, 18, 18, hexToRgba(prop.accent, 0.45 + flicker));
+          drawPixelRect(ctx, screenX + offsetX + 4, screenY - 4, 16, 3, "#0A1118");
+          drawPixelRect(ctx, screenX + offsetX + 6, screenY - 1, 12, 3, "#D7F6FF");
+          drawPixelRect(ctx, screenX + offsetX + 18, screenY - 24, 2, 20, "#F5FBFF");
           break;
         case "neon-terminal":
           drawPixelRect(ctx, screenX + 6, screenY - 20, 14, 20, "#10151F");
@@ -572,10 +722,11 @@ export function CityCanvas() {
           drawPixelRect(ctx, screenX + 8, screenY - 36, 14, 6, "#1DE3A1");
           break;
         case "newsstand":
-          drawPixelRect(ctx, screenX, screenY - 22, 38, 24, "#171C28");
-          drawPixelRect(ctx, screenX + 4, screenY - 18, 30, 12, hexToRgba(prop.accent, glow + 0.08));
-          drawPixelRect(ctx, screenX + 6, screenY - 6, 26, 4, "#D7EEFF");
-          drawPixelRect(ctx, screenX + 10, screenY + 2, 18, 4, "#0B0E15");
+          drawPixelRect(ctx, screenX, screenY - 24, 40, 26, "#171C28");
+          drawPixelRect(ctx, screenX + 2, screenY - 30, 36, 8, "#0B1017");
+          drawPixelRect(ctx, screenX + 4, screenY - 20, 32, 12, hexToRgba(prop.accent, glow + 0.08));
+          drawPixelRect(ctx, screenX + 6, screenY - 6, 28, 4, "#D7EEFF");
+          drawPixelRect(ctx, screenX + 10, screenY + 2, 20, 4, "#0B0E15");
           break;
         case "street-lamp":
           drawPixelRect(ctx, screenX + 6, screenY - 34, 4, 36, "#1D2634");
@@ -649,6 +800,25 @@ export function CityCanvas() {
       ctx.clearRect(0, 0, width, height);
 
       drawBackground(time, width, height, currentCamera.x);
+
+      districtConnections.forEach(([fromId, toId], index) => {
+        const from = districtsById[fromId];
+        const to = districtsById[toId];
+        const fromX = from.center.x - currentCamera.x;
+        const fromY = from.center.y - currentCamera.y;
+        const toX = to.center.x - currentCamera.x;
+        const toY = to.center.y - currentCamera.y;
+        if ((fromX < -300 && toX < -300) || (fromY < -300 && toY < -300) || (fromX > width + 300 && toX > width + 300) || (fromY > height + 300 && toY > height + 300)) {
+          return;
+        }
+        ctx.strokeStyle = hexToRgba(index % 2 === 0 ? from.accent : to.accent, 0.16);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+        drawPixelRect(ctx, (fromX + toX) / 2 - 6, (fromY + toY) / 2 - 2, 12, 4, "#D7F6FF");
+      });
 
       districtZones.forEach((zone) => {
         const district = districtsById[zone.districtId];
