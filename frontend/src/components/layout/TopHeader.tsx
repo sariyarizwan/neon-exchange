@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/ui/Logo";
 import { avatarOptions } from "@/mock/cityWorld";
 import { clearStoredAuth } from "@/lib/mockAuth";
 import type { MockUser } from "@/types/auth";
@@ -14,11 +15,10 @@ export function TopHeader({ user }: TopHeaderProps) {
   const avatar = avatarOptions.find((option) => option.id === user.avatarId) ?? avatarOptions[0];
 
   return (
-    <header className="pointer-events-none relative z-30 px-4 pt-4">
-      <div className="glass-panel panel-frame pointer-events-none flex items-center justify-between gap-4 px-5 py-4">
-        <div className="pointer-events-none min-w-0">
-          <div className="text-[11px] uppercase tracking-[0.22em] text-neon-cyan">NEON EXCHANGE</div>
-          <div className="mt-1 text-sm text-slate-300">Cyberpunk pixel-market city</div>
+    <header className="pointer-events-none fixed inset-x-0 top-0 z-30 px-4 pt-4">
+      <div className="glass-panel panel-frame pointer-events-none flex items-center justify-between gap-4 px-5 py-3.5">
+        <div className="pointer-events-auto min-w-0">
+          <Logo variant="wordmark" className="gap-2.5" labelClassName="leading-none" />
         </div>
 
         <div className="flex items-center gap-3">

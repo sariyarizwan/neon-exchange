@@ -60,10 +60,15 @@ export default function LoginPage() {
       accent="cyan"
       eyebrow="NEON EXCHANGE"
       title="Enter The Exchange"
-      description="A playable market city where sectors become districts, stocks become characters, and regime shifts become weather."
+      description="Explore a neon market city where sectors become districts, stocks become characters, and every rumor moves through the streets."
+      features={[
+        "Walk the districts and inspect stock NPCs in-world.",
+        "Track scenes, alliances, and storm regimes in one city shell.",
+        "Mock auth now, Gemini Live and agents later."
+      ]}
       panelEyebrow="Access"
       panelTitle="Login To The Night Market"
-      panelText="Mock auth only. Enter any credentials, choose a pixel avatar, and drop directly into the city."
+      panelText="Mock auth only. Enter any credentials, choose a pixel avatar, and step straight into the market grid."
       error={error}
       submitLabel="Sign In"
       secondaryLabel="Continue as Guest"

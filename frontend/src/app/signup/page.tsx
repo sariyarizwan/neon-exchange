@@ -67,10 +67,15 @@ export default function SignupPage() {
       accent="magenta"
       eyebrow="Create Account"
       title="Join The Exchange"
-      description="Build a mock profile, choose an avatar, and enter a living stock-market city shaped like a neon district crawler."
+      description="Build a mock operator profile, claim an avatar, and enter a living stock-market city rendered like a neon pixel district."
+      features={[
+        "Create a local mock identity with no backend dependency.",
+        "Choose a figurine-style avatar for the city streets.",
+        "Future news, audio, and agents plug into this shell later."
+      ]}
       panelEyebrow="Identity"
       panelTitle="Create Your Operator Profile"
-      panelText="This is still mock auth, but the entry flow now behaves like a real premium product shell."
+      panelText="This is still mock auth, but the entry flow now behaves like a polished product shell with room for live agents later."
       error={error}
       submitLabel="Create Account"
       secondaryLabel="Continue as Guest"

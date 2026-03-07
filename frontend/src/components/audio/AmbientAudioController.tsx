@@ -11,6 +11,7 @@ export function AmbientAudioController() {
   const sound = useNeonStore((state) => state.sound);
   const setSoundEnabled = useNeonStore((state) => state.setSoundEnabled);
   const setSoundVolume = useNeonStore((state) => state.setSoundVolume);
+  const setSoundMode = useNeonStore((state) => state.setSoundMode);
   const setAudioBootstrapped = useNeonStore((state) => state.setAudioBootstrapped);
   const setAudioNeedsGesture = useNeonStore((state) => state.setAudioNeedsGesture);
   const setAudioPlaying = useNeonStore((state) => state.setAudioPlaying);
@@ -27,17 +28,20 @@ export function AmbientAudioController() {
     }
 
     try {
-      const parsed = JSON.parse(raw) as { enabled?: boolean; volume?: number };
+      const parsed = JSON.parse(raw) as { enabled?: boolean; volume?: number; mode?: "guide" | "music" };
       if (typeof parsed.enabled === "boolean") {
         setSoundEnabled(parsed.enabled);
       }
       if (typeof parsed.volume === "number") {
         setSoundVolume(Math.max(0, Math.min(100, parsed.volume)));
       }
+      if (parsed.mode === "guide" || parsed.mode === "music") {
+        setSoundMode(parsed.mode);
+      }
     } catch (error) {
       console.error("Failed to parse audio preferences", error);
     }
-  }, [setSoundEnabled, setSoundVolume]);
+  }, [setSoundEnabled, setSoundMode, setSoundVolume]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -47,10 +51,11 @@ export function AmbientAudioController() {
       AUDIO_PREFS_KEY,
       JSON.stringify({
         enabled: sound.enabled,
-        volume: sound.volume
+        volume: sound.volume,
+        mode: sound.mode
       })
     );
-  }, [sound.enabled, sound.volume]);
+  }, [sound.enabled, sound.mode, sound.volume]);
 
   useEffect(() => {
     const audio = new Audio(TRACK_PATH);
@@ -109,7 +114,7 @@ export function AmbientAudioController() {
       return;
     }
 
-    if (!sound.enabled) {
+    if (!sound.enabled || sound.mode !== "music") {
       audio.pause();
       setAudioNeedsGesture(false);
       return;
@@ -133,7 +138,7 @@ export function AmbientAudioController() {
     };
 
     void playAudio();
-  }, [setAudioNeedsGesture, setAudioPlaying, sound.bootstrapped, sound.enabled]);
+  }, [setAudioNeedsGesture, setAudioPlaying, sound.bootstrapped, sound.enabled, sound.mode]);
 
   return null;
 }

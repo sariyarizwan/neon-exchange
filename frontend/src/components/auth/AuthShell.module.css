@@ -37,11 +37,11 @@
   min-height: 100vh;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 32px clamp(24px, 4vw, 48px);
 }
 
 .shell {
-  width: min(1180px, 100%);
+  width: min(1280px, 100%);
   overflow: hidden;
   border: 1px solid rgba(120, 140, 170, 0.18);
   border-radius: 32px;
@@ -55,20 +55,28 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1.05fr;
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
 }
 
 .hero {
   position: relative;
   display: flex;
-  min-height: 720px;
+  min-height: 680px;
   flex-direction: column;
   justify-content: space-between;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 40px;
+  padding: 40px 42px 36px;
   background:
     linear-gradient(180deg, rgba(9, 14, 22, 0.86), rgba(9, 10, 18, 0.7)),
     radial-gradient(circle at 12% 14%, rgba(51, 245, 255, 0.12), transparent 20%);
+}
+
+.heroContent {
+  max-width: 34rem;
+}
+
+.heroLogo {
+  margin-bottom: 20px;
 }
 
 .eyebrow {
@@ -80,9 +88,10 @@
 
 .title {
   margin: 14px 0 0;
-  font-size: clamp(42px, 5vw, 72px);
+  font-family: "Orbitron", "Rajdhani", "Arial Narrow", sans-serif;
+  font-size: clamp(40px, 4.8vw, 66px);
   line-height: 0.95;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   text-shadow:
     0 0 10px rgba(51, 245, 255, 0.32),
@@ -90,32 +99,28 @@
 }
 
 .lede {
-  max-width: 28rem;
-  margin-top: 20px;
+  max-width: 30rem;
+  margin-top: 18px;
   color: rgba(226, 232, 240, 0.76);
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.68;
 }
 
-.statusRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 22px;
+.featureList {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.statusPill {
+.featureItem {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(7, 10, 16, 0.72);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(226, 232, 240, 0.78);
+  gap: 10px;
+  color: rgba(226, 232, 240, 0.82);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .statusDot {
@@ -129,7 +134,7 @@
 .cityCard {
   position: relative;
   overflow: hidden;
-  min-height: 340px;
+  min-height: 290px;
   border: 1px solid rgba(80, 241, 255, 0.16);
   border-radius: 28px;
   background:
@@ -253,11 +258,11 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 40px;
+  padding: 40px 42px;
 }
 
 .panelInner {
-  width: min(520px, 100%);
+  width: min(540px, 100%);
   margin: 0 auto;
 }
 
@@ -274,8 +279,10 @@
 
 .panelTitle {
   margin-top: 8px;
+  font-family: "Orbitron", "Rajdhani", "Arial Narrow", sans-serif;
   font-size: 34px;
   line-height: 1;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -298,7 +305,7 @@
 
 .form {
   display: grid;
-  gap: 22px;
+  gap: 20px;
 }
 
 .fieldGrid {
@@ -461,6 +468,10 @@
 }
 
 @media (max-width: 960px) {
+  .wrap {
+    padding: 24px 20px;
+  }
+
   .grid {
     grid-template-columns: 1fr;
   }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AmbientAudioController } from "@/components/audio/AmbientAudioController";
+import { GuideVoiceController } from "@/components/audio/GuideVoiceController";
 import { BottomDock } from "@/components/layout/BottomDock";
 import { CenterStage } from "@/components/layout/CenterStage";
 import { RightPanel } from "@/components/layout/RightPanel";
@@ -30,6 +31,7 @@ export default function HomePage() {
   const focusMode = useNeonStore((state) => state.focusMode);
   const focusRightPanelOpen = useNeonStore((state) => state.focusRightPanelOpen);
   const overlaysDimmed = useNeonStore((state) => state.overlaysDimmed);
+  const selectedTickerId = useNeonStore((state) => state.selectedTickerId);
   const clearSelection = useNeonStore((state) => state.clearSelection);
   const toggleMic = useNeonStore((state) => state.toggleMic);
   const setAvatarId = useNeonStore((state) => state.setAvatarId);
@@ -96,27 +98,30 @@ export default function HomePage() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-base-950 text-slate-100">
       <AmbientAudioController />
+      <GuideVoiceController />
       <div className="noise-overlay absolute inset-0 opacity-40" aria-hidden="true" />
       <div className="scanline-overlay absolute inset-0 opacity-30" aria-hidden="true" />
       {stormModeActive ? <div className="storm-tint-overlay absolute inset-0 z-20" aria-hidden="true" /> : null}
 
-      <div className="relative z-10 grid h-screen min-h-screen grid-rows-[auto_minmax(0,1fr)_auto]">
+      <div className="relative z-10 min-h-screen">
         <TopHeader user={auth.user} />
         <section
           className={cn(
-            "relative grid min-h-0 gap-4 overflow-hidden px-4 pb-3 pt-4 max-[980px]:grid-rows-[1fr_auto]",
+            "relative grid gap-4 overflow-hidden px-4 pb-[96px] pt-[92px] max-[980px]:grid-rows-[1fr_auto]",
             focusMode
-              ? focusRightPanelOpen
+              ? focusRightPanelOpen && selectedTickerId
                 ? "grid-cols-[56px_minmax(0,1fr)_minmax(320px,360px)]"
                 : "grid-cols-[56px_minmax(0,1fr)_0px]"
-              : "grid-cols-[minmax(250px,290px)_minmax(0,1fr)_minmax(320px,380px)] max-[1180px]:grid-cols-[240px_minmax(0,1fr)_320px] max-[980px]:grid-cols-[220px_minmax(0,1fr)]"
+              : selectedTickerId
+                ? "grid-cols-[minmax(250px,290px)_minmax(0,1fr)_minmax(290px,340px)] max-[1180px]:grid-cols-[236px_minmax(0,1fr)_300px] max-[980px]:grid-cols-[220px_minmax(0,1fr)]"
+                : "grid-cols-[minmax(250px,290px)_minmax(0,1fr)_0px] max-[1180px]:grid-cols-[236px_minmax(0,1fr)_0px] max-[980px]:grid-cols-[220px_minmax(0,1fr)]"
           )}
-          style={{ height: "calc(100vh - 10.75rem)" }}
+          style={{ height: "calc(100vh - 92px)" }}
         >
           <SidebarLeft />
           <CenterStage />
           <RightPanel />
-          {focusMode && !focusRightPanelOpen ? (
+          {focusMode && selectedTickerId && !focusRightPanelOpen ? (
             <button
               type="button"
               onClick={() => setFocusRightPanelOpen(true)}

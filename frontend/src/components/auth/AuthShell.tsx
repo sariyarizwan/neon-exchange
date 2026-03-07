@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Logo } from "@/components/ui/Logo";
 import { avatarOptions } from "@/mock/cityWorld";
 import styles from "./AuthShell.module.css";
 
@@ -9,6 +10,7 @@ type AuthShellProps = {
   eyebrow: string;
   title: string;
   description: string;
+  features: string[];
   panelEyebrow: string;
   panelTitle: string;
   panelText: string;
@@ -30,6 +32,7 @@ export function AuthShell({
   eyebrow,
   title,
   description,
+  features,
   panelEyebrow,
   panelTitle,
   panelText,
@@ -51,20 +54,21 @@ export function AuthShell({
         <div className={styles.shell}>
           <div className={styles.grid}>
             <section className={styles.hero}>
-              <div>
+              <div className={styles.heroContent}>
+                <Logo className={styles.heroLogo} />
                 <div className={styles.eyebrow} style={{ color: accent === "cyan" ? "#63f1ff" : "#ff85eb" }}>
                   {eyebrow}
                 </div>
                 <h1 className={styles.title}>{title}</h1>
                 <p className={styles.lede}>{description}</p>
-                <div className={styles.statusRow}>
-                  <span className={styles.statusPill}>
-                    <span className={styles.statusDot} />
-                    Live city shell
-                  </span>
-                  <span className={styles.statusPill}>Mock auth active</span>
-                  <span className={styles.statusPill}>Pixel market districts online</span>
-                </div>
+                <ul className={styles.featureList}>
+                  {features.map((feature) => (
+                    <li key={feature} className={styles.featureItem}>
+                      <span className={styles.statusDot} />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               <div className={styles.cityCard}>
