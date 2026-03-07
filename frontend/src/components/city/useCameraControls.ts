@@ -127,6 +127,7 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
         (keysRef.current.has("ArrowUp") || keysRef.current.has("w") || keysRef.current.has("W") ? 1 : 0);
 
       if (horizontal !== 0 || vertical !== 0) {
+        useNeonStore.getState().markWorldMotion();
         const magnitude = Math.hypot(horizontal, vertical) || 1;
         const stepX = (horizontal / magnitude) * playerSpeed * dt;
         const stepY = (vertical / magnitude) * playerSpeed * dt;
@@ -157,6 +158,9 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
         let vy = camera.vy;
 
         if (camera.targetX !== null && camera.targetY !== null && horizontal === 0 && vertical === 0) {
+          if (Math.abs(camera.targetX - x) > 0.8 || Math.abs(camera.targetY - y) > 0.8) {
+            useNeonStore.getState().markWorldMotion();
+          }
           const dx = camera.targetX - x;
           const dy = camera.targetY - y;
           x += dx * Math.min(0.24 * dt, 0.32);
@@ -187,6 +191,9 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
           vy = dy * 0.1;
           useNeonStore.getState().setCamera({ x, y, vx, vy });
         } else {
+          if (Math.abs(vx) > 0.06 || Math.abs(vy) > 0.06) {
+            useNeonStore.getState().markWorldMotion();
+          }
           x += vx * dt;
           y += vy * dt;
 
@@ -243,6 +250,7 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
       lastTime: now
     };
     useNeonStore.getState().clearCameraTarget();
+    useNeonStore.getState().markWorldMotion();
     setIsDragging(false);
   };
 
@@ -261,6 +269,7 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
 
     if (drag.moved) {
       setIsDragging(true);
+      useNeonStore.getState().markWorldMotion();
     }
 
     const maxX = Math.max(0, WORLD_WIDTH - state.camera.viewportWidth);

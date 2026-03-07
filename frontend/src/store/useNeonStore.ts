@@ -5,7 +5,7 @@ import { avatarOptions, newsstands } from "@/mock/cityWorld";
 import { districts } from "@/mock/districts";
 import { tickers } from "@/mock/tickers";
 import { cameraTopLeftForWorldPoint, clampCameraPosition, HOME_WORLD_POINT } from "@/lib/world";
-import type { RightPanelTab, AgentPersona, EvidenceItem, FacingDirection, PlayerState } from "@/types/store";
+import type { RightPanelTab, AgentPersona, EvidenceItem, FacingDirection, PlayerState, SoundState } from "@/types/store";
 
 type ToggleKey = "showAlliances" | "showStorms" | "showRumors";
 
@@ -32,6 +32,9 @@ type NeonState = {
   selectedTickerId: string | null;
   selectedDistrictId: string | null;
   activeRightPanelTab: RightPanelTab;
+  focusMode: boolean;
+  focusRightPanelOpen: boolean;
+  overlaysDimmed: boolean;
   showAlliances: boolean;
   showStorms: boolean;
   showRumors: boolean;
@@ -44,6 +47,7 @@ type NeonState = {
   };
   camera: CameraState;
   player: PlayerState;
+  sound: SoundState;
   pluginMode: boolean;
   activeNewsstandDistrictId: string | null;
   scenePulse: ScenePulse;
@@ -51,6 +55,9 @@ type NeonState = {
   setSelectedTickerId: (tickerId: string | null) => void;
   setSelectedDistrictId: (districtId: string | null) => void;
   setActiveRightPanelTab: (tab: RightPanelTab) => void;
+  toggleFocusMode: () => void;
+  setFocusRightPanelOpen: (open: boolean) => void;
+  markWorldMotion: () => void;
   setFilterToggle: (key: ToggleKey, value: boolean) => void;
   toggleMic: () => void;
   interruptMic: () => void;
@@ -62,6 +69,11 @@ type NeonState = {
   setPlayerPosition: (x: number, y: number) => void;
   setPlayerFacing: (facing: FacingDirection) => void;
   setAvatarId: (avatarId: string) => void;
+  setSoundEnabled: (enabled: boolean) => void;
+  setSoundVolume: (volume: number) => void;
+  setAudioBootstrapped: (bootstrapped: boolean) => void;
+  setAudioNeedsGesture: (needsGesture: boolean) => void;
+  setAudioPlaying: (playing: boolean) => void;
   setPluginMode: (active: boolean) => void;
   setActiveNewsstandDistrictId: (districtId: string | null) => void;
   focusWorldPoint: (x: number, y: number) => void;
@@ -114,11 +126,15 @@ const initialEvidence: EvidenceItem[] = [
 ];
 
 const initialNewsstand = newsstands.find((entry) => entry.districtId === "consumer-strip") ?? newsstands[0];
+let overlayRestoreTimeout: number | null = null;
 
 export const useNeonStore = create<NeonState>((set, get) => ({
   selectedTickerId: "cart",
   selectedDistrictId: "consumer-strip",
   activeRightPanelTab: "scenes",
+  focusMode: false,
+  focusRightPanelOpen: false,
+  overlaysDimmed: false,
   showAlliances: true,
   showStorms: true,
   showRumors: true,
@@ -148,6 +164,14 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     facing: "down",
     avatarId: avatarOptions[0]?.id ?? "runner"
   },
+  sound: {
+    enabled: true,
+    volume: 62,
+    bootstrapped: false,
+    needsGesture: false,
+    playing: false,
+    trackName: "neon-rain.wav"
+  },
   pluginMode: false,
   activeNewsstandDistrictId: null,
   scenePulse: {
@@ -169,6 +193,25 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     }),
   setSelectedDistrictId: (districtId) => set(() => ({ selectedDistrictId: districtId })),
   setActiveRightPanelTab: (tab) => set(() => ({ activeRightPanelTab: tab })),
+  toggleFocusMode: () =>
+    set((state) => ({
+      focusMode: !state.focusMode,
+      focusRightPanelOpen: state.focusMode ? false : state.focusRightPanelOpen
+    })),
+  setFocusRightPanelOpen: (open) => set(() => ({ focusRightPanelOpen: open })),
+  markWorldMotion: () => {
+    if (typeof window === "undefined") {
+      set(() => ({ overlaysDimmed: true }));
+      return;
+    }
+    set(() => ({ overlaysDimmed: true }));
+    if (overlayRestoreTimeout !== null) {
+      window.clearTimeout(overlayRestoreTimeout);
+    }
+    overlayRestoreTimeout = window.setTimeout(() => {
+      set(() => ({ overlaysDimmed: false }));
+    }, 1000);
+  },
   setFilterToggle: (key, value) => set(() => ({ [key]: value })),
   toggleMic: () =>
     set((state) => {
@@ -264,6 +307,42 @@ export const useNeonStore = create<NeonState>((set, get) => ({
         avatarId
       }
     })),
+  setSoundEnabled: (enabled) =>
+    set((state) => ({
+      sound: {
+        ...state.sound,
+        enabled,
+        needsGesture: enabled ? state.sound.needsGesture : false
+      }
+    })),
+  setSoundVolume: (volume) =>
+    set((state) => ({
+      sound: {
+        ...state.sound,
+        volume
+      }
+    })),
+  setAudioBootstrapped: (bootstrapped) =>
+    set((state) => ({
+      sound: {
+        ...state.sound,
+        bootstrapped
+      }
+    })),
+  setAudioNeedsGesture: (needsGesture) =>
+    set((state) => ({
+      sound: {
+        ...state.sound,
+        needsGesture
+      }
+    })),
+  setAudioPlaying: (playing) =>
+    set((state) => ({
+      sound: {
+        ...state.sound,
+        playing
+      }
+    })),
   setPluginMode: (active) => set(() => ({ pluginMode: active })),
   setActiveNewsstandDistrictId: (districtId) => set(() => ({ activeNewsstandDistrictId: districtId })),
   focusWorldPoint: (x, y) =>
@@ -302,7 +381,8 @@ export const useNeonStore = create<NeonState>((set, get) => ({
           targetY: target.y,
           vx: 0,
           vy: 0
-        }
+        },
+        focusRightPanelOpen: state.focusMode ? false : state.focusRightPanelOpen
       };
     }),
   focusHome: () =>
@@ -322,7 +402,8 @@ export const useNeonStore = create<NeonState>((set, get) => ({
           targetY: target.y,
           vx: 0,
           vy: 0
-        }
+        },
+        focusRightPanelOpen: false
       };
     }),
   clearCameraTarget: () =>
@@ -338,6 +419,7 @@ export const useNeonStore = create<NeonState>((set, get) => ({
       selectedTickerId: null,
       selectedDistrictId: null,
       activeRightPanelTab: "evidence",
+      focusRightPanelOpen: false,
       camera: {
         ...state.camera,
         targetX: null,
