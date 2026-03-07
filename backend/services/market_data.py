@@ -161,6 +161,7 @@ class MarketDataService:
             self._mock_mode = True
 
     def _fetch_batch(self, batch_size: int = 5) -> None:
+        """Fetch a batch of quotes synchronously. Safe to call from a thread."""
         if not self._finnhub_key:
             return
         now = time.time()
@@ -177,6 +178,11 @@ class MarketDataService:
             time.sleep(0.08)
 
         self._refresh_batch_idx = (start + batch_size) % len(TICKERS)
+
+    async def async_fetch_batch(self, batch_size: int = 5) -> None:
+        """Non-blocking wrapper — runs _fetch_batch in a thread pool."""
+        import asyncio
+        await asyncio.to_thread(self._fetch_batch, batch_size)
 
     # --- Tick logic ---
 

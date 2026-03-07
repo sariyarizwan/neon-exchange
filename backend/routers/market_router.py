@@ -65,6 +65,12 @@ async def get_signals():
     }
 
 
+@router.get("/sparklines")
+async def get_sparklines():
+    """Return last 20 prices per neon ticker ID for mini-charts."""
+    return snapshot_cache.snapshot.sparklines
+
+
 @router.get("/debug/cache-stats")
 async def cache_stats():
     """Diagnostics: cache age, rebuild time, data source status."""

@@ -61,6 +61,9 @@ class WorldSnapshot:
     bootstrap: dict = field(default_factory=dict)
     bootstrap_json: str = "{}"
 
+    # Sparklines: neon_id → list of last 20 prices (compact for frontend)
+    sparklines: dict[str, list[float]] = field(default_factory=dict)
+
     # Diagnostics
     timestamp: float = 0.0
     rebuild_ms: float = 0.0
@@ -300,6 +303,18 @@ class SnapshotCache:
                 "alliances": alliance_map.get(sym, []),
             }
 
+        # Sparklines: last 20 prices per neon_id (compact for frontend charts)
+        sparklines: dict[str, list[float]] = {}
+        for td in all_tickers:
+            neon_id = td.get("neon_id", "")
+            sym = td.get("symbol", "")
+            if neon_id and sym in ticker_history:
+                prices = [h["price"] for h in ticker_history[sym][-20:] if "price" in h]
+                sparklines[neon_id] = prices
+                # Attach to neon ticker for convenience
+                if neon_id in neon_tickers:
+                    neon_tickers[neon_id]["sparkline"] = prices
+
         neon_state = {
             "tickers": neon_tickers,
             "marketMood": mood,
@@ -372,6 +387,7 @@ class SnapshotCache:
         snap.district_states = district_states
         snap.bootstrap = bootstrap
         snap.bootstrap_json = bootstrap_json
+        snap.sparklines = sparklines
         snap.timestamp = now
         snap.rebuild_ms = rebuild_ms
 
