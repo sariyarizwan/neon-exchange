@@ -8,3 +8,15 @@
 *.zip
 
 coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+venv/
+.venv/
+*.egg-info/
+
+# Environment
+.env
+.env.local
