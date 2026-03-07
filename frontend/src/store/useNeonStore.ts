@@ -136,13 +136,13 @@ let overlayRestoreTimeout: number | null = null;
 const soundTrackName = (mode: SoundMode) => (mode === "guide" ? "Gemini Guide (Mock)" : "neon-rain.wav");
 
 export const useNeonStore = create<NeonState>((set, get) => ({
-  selectedTickerId: "cart",
+  selectedTickerId: null,
   selectedDistrictId: "consumer-strip",
   activeRightPanelTab: "scenes",
   focusMode: false,
   focusRightPanelOpen: false,
   overlaysDimmed: false,
-  showAlliances: true,
+  showAlliances: false,
   showStorms: true,
   showRumors: true,
   stormModeActive: false,
@@ -185,7 +185,7 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     message: "Gemini guide online. I will shadow your route through the market."
   },
   pluginMode: false,
-  showPoiMarkers: true,
+  showPoiMarkers: false,
   activeNewsstandDistrictId: null,
   scenePulse: {
     districtId: null,

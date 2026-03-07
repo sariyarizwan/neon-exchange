@@ -2,15 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/Badge";
-import { Logo } from "@/components/ui/Logo";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { Toggle } from "@/components/ui/Toggle";
 import { useLiveData } from "@/components/LiveDataProvider";
-import { avatarOptions, districtZones } from "@/mock/cityWorld";
+import { avatarOptions } from "@/mock/cityWorld";
 import { districtThemes } from "@/mock/cityThemes";
 import { districts } from "@/mock/districts";
 import { tickers } from "@/mock/tickers";
-import { WORLD_HEIGHT, WORLD_WIDTH } from "@/lib/world";
 import { cn } from "@/lib/cn";
 import { useNeonStore } from "@/store/useNeonStore";
 
@@ -32,10 +30,8 @@ export function SidebarLeft() {
   const sound = useNeonStore((state) => state.sound);
   const dock = useNeonStore((state) => state.dock);
   const player = useNeonStore((state) => state.player);
-  const camera = useNeonStore((state) => state.camera);
   const showPoiMarkers = useNeonStore((state) => state.showPoiMarkers);
   const focusDistrict = useNeonStore((state) => state.focusDistrict);
-  const focusWorldPoint = useNeonStore((state) => state.focusWorldPoint);
   const focusHome = useNeonStore((state) => state.focusHome);
   const setSelectedTickerId = useNeonStore((state) => state.setSelectedTickerId);
   const setFilterToggle = useNeonStore((state) => state.setFilterToggle);
@@ -151,7 +147,10 @@ export function SidebarLeft() {
     >
       <div className="sticky top-0 z-20 border-b border-white/5 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(8,12,18,0.92))] px-4 py-4 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-3">
-          <Logo variant="wordmark" className="gap-2.5" />
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Game Menu</div>
+            <div className="mt-1 text-sm font-semibold uppercase tracking-[0.14em] text-white">District Rail</div>
+          </div>
           <button
             type="button"
             onClick={toggleFocusMode}
@@ -350,63 +349,13 @@ export function SidebarLeft() {
                     </div>
                     <div className="rounded-xl border border-slate-800 bg-slate-950/72 px-2 py-2">{sound.trackName}</div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2">
                     <Toggle checked={showAlliances} onChange={(checked) => setFilterToggle("showAlliances", checked)} label="Rails" />
                     <Toggle checked={showStorms} onChange={(checked) => setFilterToggle("showStorms", checked)} label="Storms" />
                     <Toggle checked={showRumors} onChange={(checked) => setFilterToggle("showRumors", checked)} label="Rumors" />
                   </div>
                 </div>
               </details>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/72 p-3">
-              <div className="mb-3 text-[10px] uppercase tracking-[0.16em] text-slate-500">Minimap</div>
-              <button
-                type="button"
-                aria-label="Jump camera using minimap"
-                onClick={(event) => {
-                  const rect = event.currentTarget.getBoundingClientRect();
-                  const x = ((event.clientX - rect.left) / rect.width) * WORLD_WIDTH;
-                  const y = ((event.clientY - rect.top) / rect.height) * WORLD_HEIGHT;
-                  focusWorldPoint(x, y);
-                }}
-                className="w-full rounded-2xl border border-neon-cyan/20 bg-slate-950/84 p-2 text-left"
-              >
-                <svg viewBox={`0 0 ${WORLD_WIDTH} ${WORLD_HEIGHT}`} className="h-[150px] w-full rounded-xl bg-slate-950/80">
-                  <rect x="0" y="0" width={WORLD_WIDTH} height={WORLD_HEIGHT} fill="#05060A" />
-                  {districtZones.map((zone) => (
-                    <rect
-                      key={zone.districtId}
-                      x={zone.x}
-                      y={zone.y}
-                      width={zone.width}
-                      height={zone.height}
-                      fill={`rgba(60,80,120,${zone.districtId === selectedDistrictId ? 0.42 : 0.18})`}
-                      stroke={zone.accent}
-                      strokeWidth={zone.districtId === selectedDistrictId ? 36 : 18}
-                    />
-                  ))}
-                  <circle cx={player.x} cy={player.y} r="42" fill="#F8FBFF" />
-                  <rect
-                    x={camera.x}
-                    y={camera.y}
-                    width={camera.viewportWidth}
-                    height={camera.viewportHeight}
-                    fill="none"
-                    stroke="#F8FBFF"
-                    strokeWidth="48"
-                    rx="32"
-                  />
-                </svg>
-              </button>
-              <div className="mt-2 grid grid-cols-2 gap-1 text-[9px] uppercase tracking-[0.14em] text-slate-400">
-                {Object.values(districtThemes).map((theme) => (
-                  <div key={theme.districtId} className="flex items-center gap-1">
-                    <span className="text-neon-cyan">{theme.icon}</span>
-                    <span>{districts.find((district) => district.id === theme.districtId)?.name}</span>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-950/72 p-3">

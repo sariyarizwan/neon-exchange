@@ -610,17 +610,11 @@ export function CityCanvas() {
       const y = pixel(zone.y - cameraY);
       const selected = district.id === useNeonStore.getState().selectedDistrictId;
       const pulsing = district.id === useNeonStore.getState().scenePulse.districtId;
-      const intensity = pulsing ? 0.68 : selected ? 0.44 : 0.24;
+      const intensity = pulsing ? 0.62 : selected ? 0.34 : 0.16;
 
-      drawPixelRect(ctx, x - 54, y - 54, zone.width + 108, zone.height + 108, "#0B0F16");
-      drawPixelRect(ctx, x - 20, y - 20, zone.width + 40, zone.height + 40, "#0E121A");
-      drawPixelRect(ctx, x, y, zone.width, zone.height, "#101621");
-      drawPixelFrame(ctx, x - 4, y - 4, zone.width + 8, zone.height + 8, hexToRgba(district.accent, 0.18 + intensity * 0.2));
-
-      drawPixelRect(ctx, x + 8, y + 8, zone.width - 16, 20, "#0A1019");
-      drawPixelRect(ctx, x + 8, y + zone.height - 28, zone.width - 16, 20, "#0A1019");
-      drawPixelRect(ctx, x + 8, y + 8, 20, zone.height - 16, "#0A1019");
-      drawPixelRect(ctx, x + zone.width - 28, y + 8, 20, zone.height - 16, "#0A1019");
+      drawPixelRect(ctx, x - 40, y - 40, zone.width + 80, zone.height + 80, "#090D14");
+      drawPixelRect(ctx, x, y, zone.width, zone.height, "#0E141F");
+      drawPixelFrame(ctx, x - 2, y - 2, zone.width + 4, zone.height + 4, hexToRgba(district.accent, 0.08 + intensity * 0.14));
 
       drawPixelRect(ctx, x + zone.streetInset, y + zone.streetInset, zone.width - zone.streetInset * 2, zone.height - zone.streetInset * 2, "#17202E");
 
@@ -652,12 +646,24 @@ export function CityCanvas() {
         }
       }
 
-      drawPixelRect(ctx, x + zone.streetInset, y + zone.streetInset, zone.width - zone.streetInset * 2, 18, theme.line);
-      drawPixelRect(ctx, x + zone.streetInset, y + zone.height - zone.streetInset - 18, zone.width - zone.streetInset * 2, 18, theme.line);
-      drawPixelRect(ctx, x + zone.streetInset, y + zone.streetInset, 18, zone.height - zone.streetInset * 2, theme.line);
-      drawPixelRect(ctx, x + zone.width - zone.streetInset - 18, y + zone.streetInset, 18, zone.height - zone.streetInset * 2, theme.line);
-      drawPixelRect(ctx, x + zone.streetInset + 18, y + zone.streetInset + 18, zone.width - zone.streetInset * 2 - 36, 10, "#0A1018");
-      drawPixelRect(ctx, x + zone.streetInset + 18, y + zone.height - zone.streetInset - 28, zone.width - zone.streetInset * 2 - 36, 10, "#0A1018");
+      drawPixelRect(ctx, x + zone.streetInset + 6, y + zone.streetInset + 6, zone.width - zone.streetInset * 2 - 12, 10, hexToRgba(theme.line, 0.72));
+      drawPixelRect(
+        ctx,
+        x + zone.streetInset + 6,
+        y + zone.height - zone.streetInset - 16,
+        zone.width - zone.streetInset * 2 - 12,
+        10,
+        hexToRgba(theme.line, 0.72)
+      );
+      drawPixelRect(ctx, x + zone.streetInset + 6, y + zone.streetInset + 6, 10, zone.height - zone.streetInset * 2 - 12, hexToRgba(theme.line, 0.72));
+      drawPixelRect(
+        ctx,
+        x + zone.width - zone.streetInset - 16,
+        y + zone.streetInset + 6,
+        10,
+        zone.height - zone.streetInset * 2 - 12,
+        hexToRgba(theme.line, 0.72)
+      );
 
       if (zone.tileVariant === "energy") {
         for (let index = 0; index < 6; index += 1) {
@@ -732,7 +738,9 @@ export function CityCanvas() {
         time
       );
 
-      drawPixelRect(ctx, x + zone.width / 2 - 44, y + 10, 88, 6, hexToRgba(district.accent, 0.12 + intensity * 0.12));
+      if (selected) {
+        drawPixelRect(ctx, x + zone.width / 2 - 44, y + 10, 88, 6, hexToRgba(district.accent, 0.16 + intensity * 0.18));
+      }
     };
 
     const drawSurface = (surface: WorldSurface, cameraX: number, cameraY: number, time: number) => {
@@ -981,30 +989,36 @@ export function CityCanvas() {
 
       drawBackground(time, width, height, currentCamera.x);
 
-      if (state.showAlliances) {
-        districtConnections.forEach(([fromId, toId], index) => {
-          const from = districtsById[fromId];
-          const to = districtsById[toId];
-          const fromX = from.center.x - currentCamera.x;
-          const fromY = from.center.y - currentCamera.y;
-          const toX = to.center.x - currentCamera.x;
-          const toY = to.center.y - currentCamera.y;
-          if (
-            (fromX < -300 && toX < -300) ||
-            (fromY < -300 && toY < -300) ||
-            (fromX > width + 300 && toX > width + 300) ||
-            (fromY > height + 300 && toY > height + 300)
-          ) {
-            return;
-          }
-          ctx.strokeStyle = hexToRgba(index % 2 === 0 ? from.accent : to.accent, 0.05);
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(fromX, fromY);
-          ctx.lineTo(toX, toY);
-          ctx.stroke();
-        });
-      }
+      districtConnections.forEach(([fromId, toId], index) => {
+        const from = districtsById[fromId];
+        const to = districtsById[toId];
+        const fromX = from.center.x - currentCamera.x;
+        const fromY = from.center.y - currentCamera.y;
+        const toX = to.center.x - currentCamera.x;
+        const toY = to.center.y - currentCamera.y;
+        if (
+          (fromX < -300 && toX < -300) ||
+          (fromY < -300 && toY < -300) ||
+          (fromX > width + 300 && toX > width + 300) ||
+          (fromY > height + 300 && toY > height + 300)
+        ) {
+          return;
+        }
+        ctx.strokeStyle = "rgba(8,12,18,0.9)";
+        ctx.lineWidth = 24;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+
+        ctx.strokeStyle = hexToRgba(index % 2 === 0 ? from.accent : to.accent, state.showAlliances ? 0.18 : 0.08);
+        ctx.lineWidth = state.showAlliances ? 8 : 4;
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+      });
 
       districtZones.forEach((zone) => {
         const district = districtsById[zone.districtId];
