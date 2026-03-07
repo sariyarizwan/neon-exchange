@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import os
 import base64
@@ -36,10 +35,38 @@ async def voice_websocket(websocket: WebSocket):
 
         client = genai.Client(api_key=api_key)
 
-        # Import shared memory for context injection
-        from memory.shared_state import shared_memory
-        context = shared_memory.get_bootstrap()
-        context_summary = json.dumps(context, default=str)[:2000]
+        # Build rich context from pre-computed cache snapshot
+        from services.cache import snapshot_cache
+        snap = snapshot_cache.snapshot
+        # Structured summary: mood, top movers, district conditions
+        top_movers = sorted(
+            snap.all_tickers, key=lambda t: abs(t.get("change_pct", 0)), reverse=True
+        )[:5]
+        movers_text = ", ".join(
+            f"{t.get('neon_symbol', t.get('symbol', '?'))} {t.get('change_pct', 0):+.1f}%"
+            for t in top_movers
+        )
+        district_text = "; ".join(
+            f"{d['name']} ({d['weather']}, {d['mood']})"
+            for d in snap.district_states[:8]
+        )
+        breadth = snap.signals.get("breadth", {})
+        breadth_text = (
+            f"{breadth.get('advancers', 0)} advancing, "
+            f"{breadth.get('decliners', 0)} declining, "
+            f"signal: {breadth.get('signal', 'neutral')}"
+        )
+        news_text = "; ".join(
+            n.get("headline", n.get("title", ""))[:80]
+            for n in snap.news_feed[:3]
+        )
+        context_block = (
+            f"Market mood: {snap.market_state.get('market_mood', 'unknown')}\n"
+            f"Top movers: {movers_text}\n"
+            f"Districts: {district_text}\n"
+            f"Breadth: {breadth_text}\n"
+            f"Headlines: {news_text}"
+        )
 
         config = types.LiveConnectConfig(
             response_modalities=["AUDIO"],
@@ -52,8 +79,8 @@ You help users understand market conditions, explain what's happening in differe
 discuss stock movements, and provide market intelligence. Be concise, engaging, and stay in the
 cyberpunk theme. You can see, hear, and speak.
 
-Current market context:
-{context_summary}"""
+Current market snapshot:
+{context_block}"""
                 )]
             ),
             speech_config=types.SpeechConfig(
