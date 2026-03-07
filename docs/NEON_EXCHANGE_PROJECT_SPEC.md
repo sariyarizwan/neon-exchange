@@ -13,7 +13,7 @@ This repository now separates frontend and backend documentation so the project 
 
 ### Already Implemented In This Repo
 
-- Next.js + React + TypeScript + Tailwind frontend shell
+- Next.js + React + TypeScript + Tailwind frontend shell in `frontend/`
 - 2D top-down pixel cyberpunk city prototype
 - district exploration and camera movement
 - selectable stock NPCs
@@ -46,4 +46,4 @@ This repository now separates frontend and backend documentation so the project 
 
 - Use the frontend spec for UI, player experience, map behavior, panels, auth, and city-world implementation details.
 - Use the backend spec for live data, agents, memory, orchestration, infrastructure, and plugin integration planning.
-
+- Use the `frontend/` folder as the application workspace.

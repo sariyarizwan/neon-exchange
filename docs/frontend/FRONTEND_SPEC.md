@@ -80,19 +80,19 @@ The main city page uses:
 
 ### Core Frontend Modules
 
-- `src/app/`
+- `frontend/src/app/`
   routes and page shell
-- `src/components/layout/`
+- `frontend/src/components/layout/`
   page layout and structural UI
-- `src/components/city/`
+- `frontend/src/components/city/`
   canvas renderer, camera controls, hit testing
-- `src/components/ui/`
+- `frontend/src/components/ui/`
   reusable UI primitives
-- `src/store/`
+- `frontend/src/store/`
   app and interaction state
-- `src/mock/`
+- `frontend/src/mock/`
   mock districts, tickers, scenarios, rumors, and world data
-- `src/types/`
+- `frontend/src/types/`
   shared frontend types
 
 ## 6. Key Frontend Experiences
@@ -322,4 +322,3 @@ Required contract groups:
 | Improve NPC reactions | Add stronger event-driven world-state reactions for live mode | Bharath | Live data and agent outputs | Medium |
 | Bind world simulation to UI | Translate backend events into city lighting, weather, and traffic updates | Bharath | Backend contracts | High |
 | Integration test city UX | Validate the full city flow from login to ticker inspection | Sariya | Most frontend tasks complete | High |
-
