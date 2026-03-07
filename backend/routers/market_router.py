@@ -40,6 +40,21 @@ async def trigger_tick():
     return {"status": "ticked"}
 
 
+@router.get("/signals")
+async def get_signals():
+    """Return derived market signals: correlations, sector strength, regimes, breadth."""
+    snap = snapshot_cache.snapshot
+    signals = snap.signals
+    # Return a summary without the full correlation matrix (too large for casual use)
+    return {
+        "top_correlations": signals.get("top_correlations", []),
+        "sector_strength": signals.get("sector_strength", {}),
+        "regimes": signals.get("regimes", {}),
+        "breadth": signals.get("breadth", {}),
+        "computed_at": signals.get("computed_at"),
+    }
+
+
 @router.get("/debug/cache-stats")
 async def cache_stats():
     """Diagnostics: cache age, rebuild time, data source status."""

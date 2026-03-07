@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from config.ticker_mapping import DISTRICTS, SECTOR_VOLATILITY
 from services.market_data import market_data_service
 from services.news_feed import news_feed_service
+from services.signals import compute_all_signals
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +92,10 @@ class SnapshotCache:
         self._active_idx: int = 0
         self._rebuild_count: int = 0
         self._task: asyncio.Task | None = None
+        # Signal state for incremental computation
+        self._prev_correlations: dict | None = None
+        self._prev_correlation_time: float = 0.0
+        self._prev_sector_ranks: dict[str, int] | None = None
 
     @property
     def snapshot(self) -> WorldSnapshot:
@@ -181,8 +186,23 @@ class SnapshotCache:
         # News
         news = news_feed_service.get_recent(10)
 
-        # Signals (populated by Phase 2)
-        signals: dict = {}
+        # Signals
+        now = time.time()
+        correlation_age = now - self._prev_correlation_time
+        signals = compute_all_signals(
+            all_tickers=all_tickers,
+            ticker_history=ticker_history,
+            prev_sector_ranks=self._prev_sector_ranks,
+            prev_correlations=self._prev_correlations,
+            correlation_age_s=correlation_age,
+        )
+        # Cache signal state for next rebuild
+        self._prev_correlations = signals.get("correlations")
+        if correlation_age >= 30.0:
+            self._prev_correlation_time = now
+        self._prev_sector_ranks = {
+            s: d["rank"] for s, d in signals.get("sector_strength", {}).items()
+        }
 
         # Bootstrap (what SSE emits and /api/world/state returns)
         bootstrap = {
