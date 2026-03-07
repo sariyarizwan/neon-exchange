@@ -38,8 +38,9 @@ def _build_market_context() -> str:
         + "\n".join(ticker_data)
         + "\n\nRECENT NEWS:\n"
         + "\n".join(news_lines)
-        + "\n\nDISTRICTS: chip_docks(tech), bank_towers(finance), energy_yard(energy), "
-        "pharma_heights(healthcare), crypto_alley(crypto)"
+        + "\n\nDISTRICTS: chip-docks(tech), bank-towers(finance), energy-yard(energy), "
+        "industrials-foundry(industrials), consumer-strip(consumer), "
+        "crypto-alley(crypto), bio-dome(healthcare), comms-neon-ridge(telecom)"
     )
 
 
@@ -137,7 +138,7 @@ news_analyst = LlmAgent(
     instruction="""You are the News Analyst for NEON EXCHANGE. Classify incoming news headlines.
 Map each story to affected tickers and city districts. Score severity and sentiment.
 Generate newsstand updates for each district's kiosk display.
-Districts: chip_docks (tech), bank_towers (finance), energy_yard (energy), pharma_heights (healthcare), crypto_alley (crypto).
+Districts: chip-docks (tech), bank-towers (finance), energy-yard (energy), industrials-foundry (industrials), consumer-strip (consumer), crypto-alley (crypto), bio-dome (healthcare), comms-neon-ridge (telecom).
 Use the get_news_feed tool to fetch current headlines.""",
     tools=[get_news_feed],
     output_key="news_analysis",
