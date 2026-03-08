@@ -47,11 +47,9 @@ No test runner, linter, or formatter is currently configured.
 **Page Layout** (floating panels in `page.tsx`):
 - `FloatingControls` — Top-left: districts panel, settings, ticker search, avatar picker
 - `CenterStage` — Wraps `CityCanvas` (the HTML canvas world renderer)
-- `FloatingDistrictIndicators` — Floating district name indicators
 - `RightPanel` — Resizable tabbed intel view (scenarios, alliances, evidence)
 - `DistrictPopup` — Candlestick chart + stats popup for selected district
-- `FloatingChat` — AI-powered market intel chat panel (bottom-right)
-- `FloatingMinimap` — Minimap + legend + zoom controls (bottom-right)
+- `FloatingMinimap` — Bottom-right: minimap, legend, chat toggle + panel, zoom controls
 
 **City Renderer** (`frontend/src/components/city/`):
 - `CityCanvas.tsx` — Large canvas component that renders the entire 8000x5000 pixel world: districts (with name labels), NPCs, props, weather effects, vault-style newsstands with vendor NPCs, player avatar. Has off-screen zone culling.
@@ -83,7 +81,7 @@ Functions for market state, news, bootstrap, analysis, SSE stream, voice WebSock
 localStorage-based mock auth. No real backend. Any credentials work. Stored under key `neon-exchange-auth`.
 
 **World Geometry** (`frontend/src/lib/world.ts`):
-World is 8000x5000px. Home point at (3500, 2600). Camera clamping and coordinate utilities.
+World is 4800x2200px. Districts arranged in a compact 2x4 grid (80px gaps). Home point at (1760, 1450) (Consumer Strip center). Camera clamping and coordinate utilities.
 
 ### Path Alias
 
