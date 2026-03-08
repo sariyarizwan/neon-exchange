@@ -118,6 +118,18 @@ const npcCollidesAt = (nx: number, ny: number): boolean => {
 
 const TILE = 32;
 
+// District image mapping: cycle blue, pink, purple, red across rows (left to right, top to bottom)
+const DISTRICT_IMAGE_MAP: Record<string, string> = {
+  "chip-docks": "/districts/blue.png",
+  "bank-towers": "/districts/pink.png",
+  "energy-yard": "/districts/purple.png",
+  "crypto-alley": "/districts/red.png",
+  "industrials-foundry": "/districts/blue.png",
+  "consumer-strip": "/districts/pink.png",
+  "bio-dome": "/districts/purple.png",
+  "comms-neon-ridge": "/districts/red.png",
+};
+
 const zoneShadeByVariant: Record<
   DistrictZone["tileVariant"],
   { floor: string; line: string; neon: string; shop: string; puddle: string; hazard: string }
@@ -159,6 +171,94 @@ const drawPixelFrame = (ctx: CanvasRenderingContext2D, x: number, y: number, wid
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.strokeRect(pixel(x) + 1, pixel(y) + 1, pixel(width) - 2, pixel(height) - 2);
+};
+
+const drawIsoDiamond = (
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  width: number,
+  height: number,
+  topColor: string,
+  sideColor: string
+) => {
+  const hw = width / 2;
+  const hh = height / 2;
+
+  ctx.fillStyle = topColor;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - hh);
+  ctx.lineTo(cx + hw, cy);
+  ctx.lineTo(cx, cy + hh);
+  ctx.lineTo(cx - hw, cy);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = sideColor;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + hh);
+  ctx.lineTo(cx + hw, cy);
+  ctx.lineTo(cx + hw, cy + hh * 0.7);
+  ctx.lineTo(cx, cy + hh * 1.7);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + hh);
+  ctx.lineTo(cx - hw, cy);
+  ctx.lineTo(cx - hw, cy + hh * 0.7);
+  ctx.lineTo(cx, cy + hh * 1.7);
+  ctx.closePath();
+  ctx.fill();
+};
+
+const drawVillageHouse = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  depth: number,
+  height: number,
+  accent: string
+) => {
+  const roofHeight = Math.max(12, height * 0.32);
+  const bodyHeight = height - roofHeight;
+  const rx = x + width * 0.5;
+  const ry = y - height;
+
+  ctx.fillStyle = hexToRgba(accent, 0.65);
+  ctx.beginPath();
+  ctx.moveTo(rx, ry - roofHeight);
+  ctx.lineTo(rx + width * 0.58, ry - roofHeight * 0.2);
+  ctx.lineTo(rx, ry + roofHeight * 0.6);
+  ctx.lineTo(rx - width * 0.58, ry - roofHeight * 0.2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = hexToRgba("#101722", 0.95);
+  ctx.beginPath();
+  ctx.moveTo(rx - width * 0.48, ry + roofHeight * 0.35);
+  ctx.lineTo(rx, ry + roofHeight * 0.75);
+  ctx.lineTo(rx, ry + roofHeight * 0.75 + bodyHeight);
+  ctx.lineTo(rx - width * 0.48, ry + roofHeight * 0.35 + bodyHeight * 0.8);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = hexToRgba("#0C121C", 0.98);
+  ctx.beginPath();
+  ctx.moveTo(rx + width * 0.48, ry + roofHeight * 0.35);
+  ctx.lineTo(rx, ry + roofHeight * 0.75);
+  ctx.lineTo(rx, ry + roofHeight * 0.75 + bodyHeight);
+  ctx.lineTo(rx + width * 0.48, ry + roofHeight * 0.35 + bodyHeight * 0.8);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = hexToRgba("#D7EEFF", 0.72);
+  ctx.fillRect(rx - 4, ry + roofHeight + bodyHeight * 0.48, 8, 12);
+  ctx.fillStyle = hexToRgba(accent, 0.46);
+  ctx.fillRect(rx - 10, ry + roofHeight + bodyHeight * 0.22, 20, 6);
+
+  drawIsoDiamond(ctx, x + width * 0.5, y, width + 4, depth, hexToRgba(accent, 0.22), hexToRgba(accent, 0.1));
 };
 
 const drawRing = (ctx: CanvasRenderingContext2D, x: number, y: number, color: string, pulse = 0) => {
@@ -323,30 +423,66 @@ const drawCharacter = (
   bob = 0
 ) => {
   ctx.save();
-  ctx.translate(pixel(x), pixel(y + bob));
-  drawPixelRect(ctx, -7, 11, 14, 4, "rgba(0,0,0,0.38)");
-  drawPixelRect(ctx, -5, -14, 10, 4, trim);
-  drawPixelRect(ctx, -6, -10, 12, 7, body);
-  drawPixelRect(ctx, -4, -8, 8, 2, visor);
-  drawPixelRect(ctx, -6, -3, 4, 7, body);
-  drawPixelRect(ctx, 2, -3, 4, 7, body);
-  drawPixelRect(ctx, -6, 4, 4, 7, trim);
-  drawPixelRect(ctx, 2, 4, 4, 7, trim);
-  drawPixelRect(ctx, -8, -8, 2, 6, trim);
-  drawPixelRect(ctx, 6, -8, 2, 6, trim);
+  ctx.translate(x, y + bob);
+
+  const legSwing = Math.sin(performance.now() / 120 + x * 0.03) * 1.8;
+  const facingOffset = facing === "left" ? -2 : facing === "right" ? 2 : 0;
+
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.beginPath();
+  ctx.ellipse(0, 13, 9, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = trim;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-3, 8);
+  ctx.lineTo(-3 + legSwing, 13);
+  ctx.moveTo(3, 8);
+  ctx.lineTo(3 - legSwing, 13);
+  ctx.stroke();
+
+  const torsoGradient = ctx.createLinearGradient(0, -10, 0, 8);
+  torsoGradient.addColorStop(0, hexToRgba(trim, 0.8));
+  torsoGradient.addColorStop(1, body);
+  ctx.fillStyle = torsoGradient;
+  ctx.beginPath();
+  ctx.roundRect(-6, -8, 12, 16, 4);
+  ctx.fill();
+
+  ctx.fillStyle = visor;
+  ctx.beginPath();
+  ctx.roundRect(-4 + facingOffset * 0.2, -5, 8, 3, 2);
+  ctx.fill();
+
+  ctx.fillStyle = trim;
+  ctx.beginPath();
+  ctx.arc(0, -12, 5.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = hexToRgba(accent, 0.8);
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
   if (facing === "left") {
-    drawPixelRect(ctx, -10, -7, 2, 3, accent);
+    ctx.moveTo(-9, -4);
+    ctx.lineTo(-6, -4);
   } else if (facing === "right") {
-    drawPixelRect(ctx, 8, -7, 2, 3, accent);
+    ctx.moveTo(6, -4);
+    ctx.lineTo(9, -4);
   } else if (facing === "up") {
-    drawPixelRect(ctx, -2, -14, 4, 2, accent);
+    ctx.moveTo(-1.5, -17);
+    ctx.lineTo(1.5, -17);
   } else {
-    drawPixelRect(ctx, -2, 11, 4, 2, accent);
+    ctx.moveTo(-1.5, 12);
+    ctx.lineTo(1.5, 12);
   }
+  ctx.stroke();
   if (pulse > 0) {
     ctx.strokeStyle = hexToRgba(accent, 0.48);
-    ctx.lineWidth = 2;
-    ctx.strokeRect(-10 - pulse, -18 - pulse, 20 + pulse * 2, 32 + pulse * 2);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 13 + pulse * 1.5, 19 + pulse * 1.8, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
   ctx.restore();
 };
@@ -614,9 +750,30 @@ export function CityCanvas() {
       canvas.width = Math.round(rect.width * dpr);
       canvas.height = Math.round(rect.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = true;
       useNeonStore.getState().setViewport(rect.width, rect.height);
     };
+
+    // Preload district background images
+    const districtImages: Record<string, HTMLImageElement> = {};
+    const districtImagesLoaded: Record<string, boolean> = {};
+    const uniqueSources = [...new Set(Object.values(DISTRICT_IMAGE_MAP))];
+    const sourceToImage: Record<string, HTMLImageElement> = {};
+    uniqueSources.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => {
+        sourceToImage[src] = img;
+        // Map to all districts using this source
+        for (const [districtId, distSrc] of Object.entries(DISTRICT_IMAGE_MAP)) {
+          if (distSrc === src) {
+            districtImages[districtId] = img;
+            districtImagesLoaded[districtId] = true;
+          }
+        }
+      };
+      sourceToImage[src] = img;
+    });
 
     const drawBackground = (time: number, width: number, height: number, cameraX: number) => {
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -673,38 +830,39 @@ export function CityCanvas() {
       const pulsing = district.id === useNeonStore.getState().scenePulse.districtId;
       const intensity = pulsing ? 0.62 : selected ? 0.34 : 0.16;
 
-      drawPixelRect(ctx, x - 40, y - 40, zone.width + 80, zone.height + 80, "#090D14");
-      drawPixelRect(ctx, x, y, zone.width, zone.height, "#0E141F");
-      drawPixelFrame(ctx, x - 2, y - 2, zone.width + 4, zone.height + 4, hexToRgba(district.accent, 0.08 + intensity * 0.14));
+      const baseGradient = ctx.createLinearGradient(x, y, x, y + zone.height);
+      baseGradient.addColorStop(0, "#0F1524");
+      baseGradient.addColorStop(1, "#0A1019");
+      ctx.fillStyle = baseGradient;
+      ctx.fillRect(x - 40, y - 40, zone.width + 80, zone.height + 80);
 
-      drawPixelRect(ctx, x + zone.streetInset, y + zone.streetInset, zone.width - zone.streetInset * 2, zone.height - zone.streetInset * 2, "#17202E");
+      drawIsoDiamond(
+        ctx,
+        x + zone.width / 2,
+        y + zone.height / 2,
+        zone.width - 12,
+        zone.height - 12,
+        hexToRgba(theme.floor, 0.66),
+        hexToRgba(theme.floor, 0.26)
+      );
 
-      for (let tileY = 0; tileY < zone.height - zone.streetInset * 2; tileY += TILE) {
-        for (let tileX = 0; tileX < zone.width - zone.streetInset * 2; tileX += TILE) {
-          const odd = ((tileX / TILE) + (tileY / TILE)) % 2 === 0;
-          const selector = (tileX / TILE + tileY / TILE * 3) % 11;
-          drawPixelRect(
-            ctx,
-            x + zone.streetInset + tileX,
-            y + zone.streetInset + tileY,
-            TILE - 1,
-            TILE - 1,
-            odd ? theme.floor : hexToRgba(theme.floor, 0.9)
-          );
-          if ((tileX / TILE + tileY / TILE) % 9 === 0) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 8, y + zone.streetInset + tileY + 24, 10, 1, hexToRgba(theme.line, 0.1));
-          }
-          if (selector === 2) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 12, y + zone.streetInset + tileY + 10, 8, 1, hexToRgba(theme.neon, 0.08));
-          }
-          if (selector === 5) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 7, y + zone.streetInset + tileY + 14, 16, 1, hexToRgba(theme.hazard, 0.14));
-          }
-          if (selector === 8) {
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 4, y + zone.streetInset + tileY + 18, 24, 3, hexToRgba(theme.puddle, 0.36));
-            drawPixelRect(ctx, x + zone.streetInset + tileX + 8, y + zone.streetInset + tileY + 19, 12, 1, hexToRgba(theme.neon, 0.12));
-          }
-        }
+      drawPixelRect(ctx, x, y, zone.width, zone.height, hexToRgba("#101928", 0.92));
+      drawPixelFrame(ctx, x - 1, y - 1, zone.width + 2, zone.height + 2, hexToRgba(district.accent, 0.12 + intensity * 0.2));
+
+      const innerX = x + zone.streetInset;
+      const innerY = y + zone.streetInset;
+      const innerW = zone.width - zone.streetInset * 2;
+      const innerH = zone.height - zone.streetInset * 2;
+      drawPixelRect(ctx, innerX, innerY, innerW, innerH, hexToRgba(theme.floor, 0.82));
+
+      for (let row = 0; row < 5; row += 1) {
+        const roadY = innerY + 24 + row * ((innerH - 48) / 4);
+        ctx.strokeStyle = hexToRgba(theme.line, 0.24);
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(innerX + 24, roadY);
+        ctx.lineTo(innerX + innerW - 24, roadY);
+        ctx.stroke();
       }
 
       drawPixelRect(ctx, x + zone.streetInset + 6, y + zone.streetInset + 6, zone.width - zone.streetInset * 2 - 12, 10, hexToRgba(theme.line, 0.72));
@@ -756,21 +914,21 @@ export function CityCanvas() {
       const plazaY = y + zone.height / 2 - plazaSize / 2;
       drawPlazaCore(ctx, plazaX, plazaY, plazaSize, district.accent, time);
 
-      const topFacadeY = y + 16;
-      for (let index = 0; index < 6; index += 1) {
-        const buildingX = x + zone.streetInset + 8 + index * 108;
-        drawFacadeBlock(ctx, buildingX, topFacadeY, 78, 62 + (index % 2) * 10, district.accent, theme.shop);
+      const topFacadeY = y + 90;
+      for (let index = 0; index < 5; index += 1) {
+        const buildingX = x + zone.streetInset + 34 + index * (innerW / 5);
+        drawVillageHouse(ctx, buildingX, topFacadeY, 46, 18, 74 + (index % 2) * 8, district.accent);
       }
 
-      const leftFacadeX = x + 18;
-      for (let index = 0; index < 4; index += 1) {
-        drawFacadeBlock(ctx, leftFacadeX, y + zone.streetInset + 26 + index * 114, 54, 86, district.accent, "#0E1522");
+      const leftFacadeX = x + 34;
+      for (let index = 0; index < 3; index += 1) {
+        drawVillageHouse(ctx, leftFacadeX, y + zone.streetInset + 186 + index * 120, 38, 16, 62, district.accent);
       }
 
-      for (let index = 0; index < 4; index += 1) {
-        const buildingX = x + zone.width - zone.streetInset - 74;
-        const buildingY = y + zone.streetInset + 30 + index * 110;
-        drawFacadeBlock(ctx, buildingX, buildingY, 56, 76, district.accent, "#10192B");
+      for (let index = 0; index < 3; index += 1) {
+        const buildingX = x + zone.width - zone.streetInset - 92;
+        const buildingY = y + zone.streetInset + 186 + index * 120;
+        drawVillageHouse(ctx, buildingX, buildingY, 38, 16, 62, district.accent);
       }
 
       drawCornerDressing(
@@ -850,17 +1008,21 @@ export function CityCanvas() {
       }
 
       if (structure.kind === "building" || structure.kind === "shopfront") {
-        drawPixelRect(ctx, x, y, structure.width, structure.height, structure.kind === "shopfront" ? "#141C2B" : "#0B1018");
-        drawPixelFrame(ctx, x, y, structure.width, structure.height, hexToRgba(structure.accent, structure.kind === "shopfront" ? 0.22 : 0.12));
-        if (structure.kind === "building") {
-          for (let row = 8; row < structure.height - 12; row += 16) {
-            for (let col = 10; col < structure.width - 14; col += 14) {
-              drawPixelRect(ctx, x + col, y + row, 6, 6, (row + col) % 28 === 0 ? "#D8EEFF" : "#7287A6");
-            }
-          }
-        }
+        drawVillageHouse(
+          ctx,
+          x,
+          y + structure.height,
+          Math.max(26, Math.min(72, structure.width * 0.9)),
+          Math.max(12, Math.min(24, structure.width * 0.28)),
+          Math.max(42, Math.min(98, structure.height * 1.1)),
+          structure.accent
+        );
       } else if (structure.kind === "fence" || structure.kind === "gate" || structure.kind === "railing") {
-        drawPixelRect(ctx, x, y, structure.width, structure.height, "#101722");
+        const fenceGradient = ctx.createLinearGradient(x, y, x, y + structure.height);
+        fenceGradient.addColorStop(0, hexToRgba(structure.accent, 0.4));
+        fenceGradient.addColorStop(1, "#0B1119");
+        ctx.fillStyle = fenceGradient;
+        ctx.fillRect(x, y, structure.width, structure.height);
         for (let post = 0; post < structure.width; post += 14) {
           drawPixelRect(ctx, x + post, y, 4, structure.height, hexToRgba(structure.accent, 0.34));
         }
@@ -1054,7 +1216,7 @@ export function CityCanvas() {
             : 0;
 
       ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = true;
       ctx.clearRect(0, 0, width, height);
 
       drawBackground(time, width, height, currentCamera.x);
@@ -1122,11 +1284,44 @@ export function CityCanvas() {
         });
       }
 
+      // Draw district background images (replacing procedural drawZone)
       districtZones.forEach((zone) => {
         const district = districtsById[zone.districtId];
-        drawZone(zone, district, time, currentCamera.x, currentCamera.y);
+        const x = pixel(zone.x - currentCamera.x);
+        const y = pixel(zone.y - currentCamera.y);
+
+        // Off-screen culling
+        if (x + zone.width + 80 < 0 || y + zone.height + 80 < 0 || x - 80 > width || y - 80 > height) {
+          return;
+        }
+
+        const selected = district.id === useNeonStore.getState().selectedDistrictId;
+        const pulsing = district.id === useNeonStore.getState().scenePulse.districtId;
+        const intensity = pulsing ? 0.62 : selected ? 0.34 : 0.16;
+
+        const img = districtImages[zone.districtId];
+        if (img && districtImagesLoaded[zone.districtId]) {
+          // Draw the district image scaled to fit the zone
+          ctx.drawImage(img, x, y, zone.width, zone.height);
+
+          // Selection/pulse glow overlay
+          if (selected || pulsing) {
+            ctx.fillStyle = hexToRgba(district.accent, intensity * 0.15);
+            ctx.fillRect(x, y, zone.width, zone.height);
+          }
+
+          // Accent border frame
+          ctx.strokeStyle = hexToRgba(district.accent, 0.12 + intensity * 0.2);
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, zone.width - 2, zone.height - 2);
+        } else {
+          // Fallback: dark rectangle while image loads
+          drawPixelRect(ctx, x, y, zone.width, zone.height, "#0A1019");
+          drawPixelFrame(ctx, x, y, zone.width, zone.height, hexToRgba(district.accent, 0.15));
+        }
       });
 
+      // District name labels
       if (zoom >= 0.6) {
         districtZones.forEach((zone) => {
           const district = districtsById[zone.districtId];
@@ -1136,25 +1331,31 @@ export function CityCanvas() {
           if (labelX < -200 || labelX > width + 200 || labelY < -200 || labelY > height + 200) return;
           const prevAlign = ctx.textAlign;
           ctx.textAlign = "center";
+          // Label background for readability over image
+          const labelText = `${theme?.icon ?? ""} ${district.name}`;
+          const textWidth = ctx.measureText(labelText).width + 16;
+          ctx.fillStyle = "rgba(8, 16, 25, 0.7)";
+          ctx.fillRect(labelX - textWidth / 2, labelY - 20, textWidth, 36);
           ctx.font = "bold 13px monospace";
-          ctx.fillStyle = hexToRgba(district.accent, 0.7);
-          ctx.fillText(`${theme?.icon ?? ""} ${district.name}`, labelX, labelY - 8);
+          ctx.fillStyle = hexToRgba(district.accent, 0.85);
+          ctx.fillText(labelText, labelX, labelY - 8);
           ctx.font = "10px monospace";
-          ctx.fillStyle = hexToRgba(district.accent, 0.4);
+          ctx.fillStyle = hexToRgba(district.accent, 0.55);
           ctx.fillText(district.sector, labelX, labelY + 8);
           ctx.textAlign = prevAlign;
         });
       }
 
-      districtSurfaces.forEach((surface) => {
-        drawSurface(surface, currentCamera.x, currentCamera.y, time);
-      });
+      // Old procedural surfaces/structures commented out — replaced by district images
+      // districtSurfaces.forEach((surface) => {
+      //   drawSurface(surface, currentCamera.x, currentCamera.y, time);
+      // });
 
-      [...districtStructures]
-        .sort((left, right) => left.y - right.y)
-        .forEach((structure) => {
-          drawStructure(structure, currentCamera.x, currentCamera.y, time);
-        });
+      // [...districtStructures]
+      //   .sort((left, right) => left.y - right.y)
+      //   .forEach((structure) => {
+      //     drawStructure(structure, currentCamera.x, currentCamera.y, time);
+      //   });
 
       cityProps.forEach((prop) => {
         if (prop.lightRadius) {
@@ -1754,7 +1955,7 @@ export function CityCanvas() {
       <canvas
         ref={canvasRef}
         className={cn("h-full w-full touch-none bg-transparent", controls.isDragging ? "cursor-grabbing" : "cursor-grab")}
-        aria-label="Living pixel-art cyberpunk city map"
+        aria-label="Living district village city map"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
