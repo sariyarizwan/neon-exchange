@@ -35,6 +35,30 @@ type QuestToast = {
   createdAt: number;
 };
 
+type QuestLogEntry = {
+  id: string;
+  text: string;
+  type: string;
+  districtId: string | null;
+  createdAt: number;
+  active: boolean;
+};
+
+type PortfolioPosition = {
+  tickerId: string;
+  symbol: string;
+  districtId: string;
+  shares: number;
+  avgPrice: number;
+  acquiredAt: number;
+};
+
+type SynergyBurst = {
+  active: boolean;
+  expiresAt: number;
+  recentTrades: Array<{ tickerId: string; timestamp: number }>;
+};
+
 type NeonState = {
   selectedTickerId: string | null;
   selectedDistrictId: string | null;
@@ -47,6 +71,15 @@ type NeonState = {
   showRumors: boolean;
   stormModeActive: boolean;
   questToasts: QuestToast[];
+  questLog: QuestLogEntry[];
+  questLogOpen: boolean;
+  legendOverlayOpen: boolean;
+  legendSeenOnce: boolean;
+  portfolio: PortfolioPosition[];
+  paperBalance: number;
+  synergyBurst: SynergyBurst;
+  droneState: "calm" | "alert" | "glitch";
+  onboardingStep: number; // 0=not started, 1=move, 2=talk NPC, 3=visit newsstand, 4=done
   dock: {
     connected: boolean;
     micActive: boolean;
@@ -104,8 +137,16 @@ type NeonState = {
   zoomIn: () => void;
   zoomOut: () => void;
   addEvidence: (entry: Omit<EvidenceItem, "id" | "timestamp">) => void;
-  addQuestToast: (text: string, type: string) => void;
+  addQuestToast: (text: string, type: string, districtId?: string | null) => void;
   dismissQuestToast: (id: string) => void;
+  toggleQuestLog: () => void;
+  markQuestInactive: (id: string) => void;
+  toggleLegendOverlay: () => void;
+  setLegendSeenOnce: () => void;
+  acquireUplink: (tickerId: string, symbol: string, districtId: string, price: number, shares: number) => void;
+  extractPosition: (tickerId: string, price: number, shares: number) => void;
+  setDroneState: (state: "calm" | "alert" | "glitch") => void;
+  advanceOnboarding: () => void;
 };
 
 const MIN_ZOOM = 0.5;
@@ -146,6 +187,15 @@ export const useNeonStore = create<NeonState>((set, get) => ({
   showRumors: true,
   stormModeActive: false,
   questToasts: [],
+  questLog: [],
+  questLogOpen: false,
+  legendOverlayOpen: false,
+  legendSeenOnce: typeof window !== "undefined" ? localStorage.getItem("neon-legend-seen") === "true" : false,
+  portfolio: [],
+  paperBalance: 100000,
+  synergyBurst: { active: false, expiresAt: 0, recentTrades: [] },
+  droneState: "calm",
+  onboardingStep: 0,
   dock: {
     connected: true,
     micActive: false,
@@ -518,15 +568,74 @@ export const useNeonStore = create<NeonState>((set, get) => ({
         ...state.evidenceTimeline
       ].slice(0, 16)
     })),
-  addQuestToast: (text, type) =>
-    set((state) => ({
-      questToasts: [
-        { id: `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text, type, createdAt: Date.now() },
-        ...state.questToasts,
-      ].slice(0, 5)
-    })),
+  addQuestToast: (text, type, districtId = null) =>
+    set((state) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const now = Date.now();
+      return {
+        questToasts: [{ id, text, type, createdAt: now }, ...state.questToasts].slice(0, 5),
+        questLog: [{ id, text, type, districtId: districtId ?? null, createdAt: now, active: true }, ...state.questLog].slice(0, 50),
+      };
+    }),
   dismissQuestToast: (id) =>
     set((state) => ({
       questToasts: state.questToasts.filter((t) => t.id !== id)
+    })),
+  toggleQuestLog: () => set((state) => ({ questLogOpen: !state.questLogOpen })),
+  markQuestInactive: (id) =>
+    set((state) => ({
+      questLog: state.questLog.map((entry) => entry.id === id ? { ...entry, active: false } : entry)
+    })),
+  toggleLegendOverlay: () => set((state) => ({ legendOverlayOpen: !state.legendOverlayOpen })),
+  setLegendSeenOnce: () => {
+    if (typeof window !== "undefined") localStorage.setItem("neon-legend-seen", "true");
+    set(() => ({ legendSeenOnce: true }));
+  },
+  acquireUplink: (tickerId, symbol, districtId, price, shares) =>
+    set((state) => {
+      const cost = price * shares;
+      if (cost > state.paperBalance) return state;
+      const existing = state.portfolio.find((p) => p.tickerId === tickerId);
+      const now = Date.now();
+      const updatedPortfolio = existing
+        ? state.portfolio.map((p) =>
+            p.tickerId === tickerId
+              ? { ...p, shares: p.shares + shares, avgPrice: (p.avgPrice * p.shares + price * shares) / (p.shares + shares) }
+              : p
+          )
+        : [...state.portfolio, { tickerId, symbol, districtId, shares, avgPrice: price, acquiredAt: now }];
+      // Track for synergy burst
+      const recentTrades = [...state.synergyBurst.recentTrades, { tickerId, timestamp: now }].filter((t) => now - t.timestamp < 60000);
+      // Check synergy: 3+ unique correlated tickers within 60s
+      const uniqueTickers = new Set(recentTrades.map((t) => t.tickerId));
+      const synergyActive = uniqueTickers.size >= 3;
+      return {
+        paperBalance: state.paperBalance - cost,
+        portfolio: updatedPortfolio,
+        synergyBurst: {
+          active: synergyActive || state.synergyBurst.active,
+          expiresAt: synergyActive ? now + 120000 : state.synergyBurst.expiresAt,
+          recentTrades,
+        },
+      };
+    }),
+  extractPosition: (tickerId, price, shares) =>
+    set((state) => {
+      const existing = state.portfolio.find((p) => p.tickerId === tickerId);
+      if (!existing || existing.shares < shares) return state;
+      const revenue = price * shares;
+      const remaining = existing.shares - shares;
+      const updatedPortfolio = remaining > 0
+        ? state.portfolio.map((p) => p.tickerId === tickerId ? { ...p, shares: remaining } : p)
+        : state.portfolio.filter((p) => p.tickerId !== tickerId);
+      return {
+        paperBalance: state.paperBalance + revenue,
+        portfolio: updatedPortfolio,
+      };
+    }),
+  setDroneState: (droneState) => set(() => ({ droneState })),
+  advanceOnboarding: () =>
+    set((state) => ({
+      onboardingStep: Math.min(state.onboardingStep + 1, 4)
     })),
 }));

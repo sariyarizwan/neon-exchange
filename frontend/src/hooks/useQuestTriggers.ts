@@ -33,7 +33,7 @@ export function useQuestTriggers() {
     for (const id of currentStorms) {
       if (!prevStormDistricts.current.has(id)) {
         const name = districts.find((d) => d.id === id)?.name ?? id;
-        addQuestToast(`Storm detected in ${name}! High volatility zone.`, "storm");
+        addQuestToast(`Storm detected in ${name}! High volatility zone.`, "storm", id);
       }
     }
     prevStormDistricts.current = currentStorms;

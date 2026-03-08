@@ -16,6 +16,11 @@ export function FloatingMinimap() {
   const player = useNeonStore((state) => state.player);
   const camera = useNeonStore((state) => state.camera);
   const focusWorldPoint = useNeonStore((state) => state.focusWorldPoint);
+  const questLogOpen = useNeonStore((state) => state.questLogOpen);
+  const toggleQuestLog = useNeonStore((state) => state.toggleQuestLog);
+  const toggleLegendOverlay = useNeonStore((state) => state.toggleLegendOverlay);
+  const legendOverlayOpen = useNeonStore((state) => state.legendOverlayOpen);
+  const questLogCount = useNeonStore((state) => state.questLog.filter((e) => e.active).length);
 
   return (
     <div className="fixed bottom-4 right-4 z-30 flex items-end gap-2">
@@ -104,8 +109,27 @@ export function FloatingMinimap() {
         {/* Chat panel floats above buttons when open */}
         <FloatingChatPanel open={chatOpen} onToggle={() => setChatOpen(!chatOpen)} />
 
-        {/* Button row: chat + legend side by side */}
+        {/* Button row: quest log + chat + legend + metaphor guide */}
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Quest Log (Q)"
+            onClick={toggleQuestLog}
+            className={cn(
+              "relative flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-950/88 text-sm font-bold transition",
+              questLogOpen
+                ? "border-neon-cyan/50 text-cyan-100 shadow-neon-cyan"
+                : "border-slate-700 text-slate-400 hover:border-neon-cyan/35 hover:text-cyan-100"
+            )}
+            title="Quest Log (Q)"
+          >
+            &#x1F4DC;
+            {questLogCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-neon-magenta text-[8px] font-bold text-white">
+                {questLogCount}
+              </span>
+            ) : null}
+          </button>
           <button
             type="button"
             aria-label="Market Intel Chat"
@@ -132,6 +156,20 @@ export function FloatingMinimap() {
             )}
           >
             ?
+          </button>
+          <button
+            type="button"
+            aria-label="Metaphor Guide (L)"
+            onClick={toggleLegendOverlay}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-950/88 text-sm font-bold transition",
+              legendOverlayOpen
+                ? "border-amber-400/50 text-amber-100 shadow-[0_0_12px_rgba(251,191,36,0.15)]"
+                : "border-slate-700 text-slate-400 hover:border-amber-400/35 hover:text-amber-100"
+            )}
+            title="How to Read the Market (L)"
+          >
+            &#x1F4D6;
           </button>
         </div>
 

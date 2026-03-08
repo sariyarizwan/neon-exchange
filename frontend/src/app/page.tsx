@@ -8,9 +8,12 @@ import { CenterStage } from "@/components/layout/CenterStage";
 import { DistrictPopup } from "@/components/layout/DistrictPopup";
 import { FloatingControls } from "@/components/layout/FloatingControls";
 import { FloatingMinimap } from "@/components/layout/FloatingMinimap";
-import { RightPanel } from "@/components/layout/RightPanel";
+import { LegendOverlay } from "@/components/layout/LegendOverlay";
+import { QuestLog } from "@/components/layout/QuestLog";
 import { QuestToasts } from "@/components/layout/QuestToasts";
+import { RightPanel } from "@/components/layout/RightPanel";
 import { LiveDataProvider } from "@/components/LiveDataProvider";
+import { useMicroLegend } from "@/hooks/useMicroLegend";
 import { useQuestTriggers } from "@/hooks/useQuestTriggers";
 import { cn } from "@/lib/cn";
 import { readStoredAuth } from "@/lib/mockAuth";
@@ -34,6 +37,8 @@ export default function HomePage() {
   const clearSelection = useNeonStore((state) => state.clearSelection);
   const toggleMic = useNeonStore((state) => state.toggleMic);
   const setAvatarId = useNeonStore((state) => state.setAvatarId);
+  const toggleQuestLog = useNeonStore((state) => state.toggleQuestLog);
+  const toggleLegendOverlay = useNeonStore((state) => state.toggleLegendOverlay);
 
   useEffect(() => {
     const stored = readStoredAuth();
@@ -67,6 +72,14 @@ export default function HomePage() {
         event.preventDefault();
         toggleMic();
       }
+
+      if (event.key.toLowerCase() === "q" && !isTypingTarget(event.target)) {
+        toggleQuestLog();
+      }
+
+      if (event.key.toLowerCase() === "l" && !isTypingTarget(event.target)) {
+        toggleLegendOverlay();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -74,7 +87,7 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [clearSelection, toggleMic]);
+  }, [clearSelection, toggleMic, toggleQuestLog, toggleLegendOverlay]);
 
   if (!checkedAuth) {
     return (
@@ -111,6 +124,8 @@ export default function HomePage() {
         <RightPanel />
         <DistrictPopup />
         <QuestToasts />
+        <QuestLog />
+        <LegendOverlay />
         <FloatingMinimap />
       </div>
     </main>
@@ -118,8 +133,9 @@ export default function HomePage() {
   );
 }
 
-/** Invisible component that runs the quest trigger hook inside LiveDataProvider context */
+/** Invisible component that runs hooks requiring LiveDataProvider context */
 function QuestTriggerWatcher() {
   useQuestTriggers();
+  useMicroLegend();
   return null;
 }

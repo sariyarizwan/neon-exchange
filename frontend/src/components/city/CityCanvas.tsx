@@ -1362,16 +1362,60 @@ export function CityCanvas() {
         drawPixelRect(ctx, trail.x - currentCamera.x - 6, trail.y - currentCamera.y, 12, 4, `rgba(8,12,18,${trail.age * 0.35})`);
       });
 
-      const guideX = state.player.x - currentCamera.x + 34;
+      // === Pet Sentinel Drone (Neon Sentinel) ===
+      // Determine player's current district for color matching
+      const playerDistrict = hitTestDistrict(state.player.x, state.player.y, districts);
+      const droneAccent = playerDistrict?.accent ?? "#33F5FF";
+      const playerDistrictState = playerDistrict && ds ? ds[playerDistrict.id] : null;
+      // Drone state: glitch in storms, alert in choppy/rain, calm otherwise
+      const droneMode: "calm" | "alert" | "glitch" =
+        playerDistrictState?.weather === "storm" || state.stormModeActive ? "glitch" :
+        playerDistrictState?.weather === "rain" || playerDistrictState?.mood === "tense" ? "alert" : "calm";
+      const glitchOffset = droneMode === "glitch" ? (Math.random() - 0.5) * 3 : 0;
+      const alertPulse = droneMode === "alert" ? 0.5 + Math.sin(time / 150) * 0.3 : 0;
+
+      const guideX = state.player.x - currentCamera.x + 34 + glitchOffset;
       const guideY = state.player.y - currentCamera.y - 22 + Math.sin(time / 220) * 2;
-      drawLightPool(ctx, guideX, guideY + 16, 28, "#33F5FF", guide.speaking ? 0.2 : 0.1);
-      drawPixelRect(ctx, guideX - 8, guideY - 16, 16, 16, "#081019");
-      drawPixelFrame(ctx, guideX - 8, guideY - 16, 16, 16, guide.speaking ? hexToRgba("#33F5FF", 0.7) : hexToRgba("#33F5FF", 0.32));
+      // Glow color matches district
+      const glowAlpha = droneMode === "glitch" ? 0.15 + Math.sin(time / 80) * 0.1 : guide.speaking ? 0.2 : 0.1;
+      drawLightPool(ctx, guideX, guideY + 16, droneMode === "alert" ? 32 : 28, droneAccent, glowAlpha);
+      // Body
+      const bodyColor = droneMode === "glitch" ? hexToRgba(droneAccent, 0.5 + Math.sin(time / 60) * 0.3) : "#081019";
+      drawPixelRect(ctx, guideX - 8, guideY - 16, 16, 16, bodyColor);
+      const frameAlpha = droneMode === "glitch" ? 0.6 + Math.sin(time / 40) * 0.3 : guide.speaking ? 0.7 : 0.32;
+      drawPixelFrame(ctx, guideX - 8, guideY - 16, 16, 16, hexToRgba(droneAccent, frameAlpha));
       drawPixelRect(ctx, guideX - 5, guideY - 13, 10, 4, "#DFFAFF");
-      drawPixelRect(ctx, guideX - 6, guideY - 8, 12, 8, guide.speaking ? "#16374A" : "#102232");
-      drawPixelRect(ctx, guideX - 3, guideY - 6, 6, 2, "#33F5FF");
-      drawPixelRect(ctx, guideX - 2, guideY + 1, 4, 4, "#33F5FF");
-      drawPixelRect(ctx, guideX - 1, guideY + 5, 2, 6, "#33F5FF");
+      drawPixelRect(ctx, guideX - 6, guideY - 8, 12, 8, droneMode === "glitch" ? hexToRgba(droneAccent, 0.4) : guide.speaking ? "#16374A" : "#102232");
+      drawPixelRect(ctx, guideX - 3, guideY - 6, 6, 2, droneAccent);
+      drawPixelRect(ctx, guideX - 2, guideY + 1, 4, 4, droneAccent);
+      drawPixelRect(ctx, guideX - 1, guideY + 5, 2, 6, droneAccent);
+      // Alert ring for alert mode
+      if (droneMode === "alert") {
+        drawRing(ctx, guideX, guideY, droneAccent, alertPulse);
+      }
+
+      // Drone metaphor translation bubble
+      const droneBubble = (() => {
+        if (!playerDistrictState) return null;
+        if (playerDistrictState.weather === "storm") return "Volatility spiking\u2014stay sharp!";
+        if (playerDistrictState.weather === "rain") return "Choppy\u2014moderate risk ahead.";
+        if (playerDistrictState.traffic === "low") return "Thin liquidity\u2014spreads wide.";
+        if (playerDistrictState.traffic === "gridlock") return "Deep liquidity\u2014tight spreads.";
+        if (playerDistrictState.mood === "panic") return "Market fear\u2014possible selloff.";
+        if (playerDistrictState.mood === "euphoric") return "Euphoria\u2014watch for reversal.";
+        return null;
+      })();
+      // Show bubble briefly on state change (every ~5 seconds)
+      if (droneBubble && Math.floor(time / 5000) % 3 === 0) {
+        const bubbleW = Math.min(droneBubble.length * 5.5 + 12, 160);
+        drawPixelRect(ctx, guideX - bubbleW / 2, guideY - 36, bubbleW, 14, "#081019");
+        drawPixelFrame(ctx, guideX - bubbleW / 2, guideY - 36, bubbleW, 14, hexToRgba(droneAccent, 0.4));
+        ctx.fillStyle = "#F6FBFF";
+        ctx.font = "bold 7px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(droneBubble.slice(0, 28), guideX, guideY - 27);
+        ctx.textAlign = "start";
+      }
 
       drawCharacter(
         ctx,

@@ -9,6 +9,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { useLiveData } from "@/components/LiveDataProvider";
 import { districts } from "@/mock/districts";
 import { tickers } from "@/mock/tickers";
+import { TradePanel } from "@/components/layout/TradePanel";
 import { cn } from "@/lib/cn";
 import { useNeonStore } from "@/store/useNeonStore";
 import type { RightPanelTab } from "@/types/store";
@@ -227,6 +228,8 @@ export function RightPanel() {
             </Button>
           </div>
         </Card>
+
+        <TradePanel />
 
         {detailsOpen ? (
           <div className="space-y-3">
