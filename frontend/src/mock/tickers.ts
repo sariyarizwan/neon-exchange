@@ -9,7 +9,7 @@ export const tickers: Ticker[] = [
     archetype: "The Inventor",
     mood: "confident",
     regimeTags: ["calm", "choppy"],
-    position: { x: 760, y: 880 },
+    position: { x: 490, y: 510 },
     trend: "up",
     alliances: [
       { tickerId: "qntm", strength: "Core" },
@@ -25,7 +25,7 @@ export const tickers: Ticker[] = [
     archetype: "The Architect",
     mood: "nervous",
     regimeTags: ["choppy"],
-    position: { x: 980, y: 700 },
+    position: { x: 710, y: 330 },
     trend: "flat",
     alliances: [
       { tickerId: "nvx", strength: "Core" },
@@ -40,7 +40,7 @@ export const tickers: Ticker[] = [
     archetype: "The Watcher",
     mood: "erratic",
     regimeTags: ["storm"],
-    position: { x: 1110, y: 1010 },
+    position: { x: 840, y: 640 },
     trend: "down",
     alliances: [
       { tickerId: "beam", strength: "Strong" },
@@ -55,7 +55,7 @@ export const tickers: Ticker[] = [
     archetype: "The Broker",
     mood: "confident",
     regimeTags: ["choppy", "storm"],
-    position: { x: 2510, y: 680 },
+    position: { x: 1420, y: 490 },
     trend: "up",
     alliances: [
       { tickerId: "vault", strength: "Core" },
@@ -70,7 +70,7 @@ export const tickers: Ticker[] = [
     archetype: "The Titan",
     mood: "nervous",
     regimeTags: ["calm", "choppy"],
-    position: { x: 2800, y: 860 },
+    position: { x: 1710, y: 670 },
     trend: "flat",
     alliances: [
       { tickerId: "mint", strength: "Core" },
@@ -85,7 +85,7 @@ export const tickers: Ticker[] = [
     archetype: "The Insurer",
     mood: "erratic",
     regimeTags: ["storm"],
-    position: { x: 2920, y: 540 },
+    position: { x: 1830, y: 350 },
     trend: "down",
     alliances: [
       { tickerId: "vault", strength: "Strong" },
@@ -100,7 +100,7 @@ export const tickers: Ticker[] = [
     archetype: "The Refiner",
     mood: "confident",
     regimeTags: ["storm", "choppy"],
-    position: { x: 5660, y: 840 },
+    position: { x: 2400, y: 470 },
     trend: "up",
     alliances: [
       { tickerId: "grid", strength: "Core" },
@@ -115,7 +115,7 @@ export const tickers: Ticker[] = [
     archetype: "The Stabilizer",
     mood: "nervous",
     regimeTags: ["calm", "storm"],
-    position: { x: 5990, y: 730 },
+    position: { x: 2730, y: 360 },
     trend: "flat",
     alliances: [
       { tickerId: "flux", strength: "Core" },
@@ -130,7 +130,7 @@ export const tickers: Ticker[] = [
     archetype: "The Runner",
     mood: "erratic",
     regimeTags: ["storm"],
-    position: { x: 6090, y: 1080 },
+    position: { x: 2830, y: 710 },
     trend: "up",
     alliances: [
       { tickerId: "grid", strength: "Strong" },
@@ -145,7 +145,7 @@ export const tickers: Ticker[] = [
     archetype: "The Builder",
     mood: "confident",
     regimeTags: ["calm"],
-    position: { x: 1140, y: 2790 },
+    position: { x: 480, y: 1380 },
     trend: "up",
     alliances: [
       { tickerId: "haul", strength: "Core" },
@@ -160,7 +160,7 @@ export const tickers: Ticker[] = [
     archetype: "The Carrier",
     mood: "nervous",
     regimeTags: ["choppy"],
-    position: { x: 1400, y: 3010 },
+    position: { x: 740, y: 1600 },
     trend: "flat",
     alliances: [
       { tickerId: "forge", strength: "Core" },
@@ -175,7 +175,7 @@ export const tickers: Ticker[] = [
     archetype: "The Mechanic",
     mood: "erratic",
     regimeTags: ["storm", "choppy"],
-    position: { x: 1520, y: 2670 },
+    position: { x: 860, y: 1260 },
     trend: "down",
     alliances: [
       { tickerId: "forge", strength: "Strong" },
@@ -190,7 +190,7 @@ export const tickers: Ticker[] = [
     archetype: "The Crowd",
     mood: "confident",
     regimeTags: ["calm", "choppy"],
-    position: { x: 3340, y: 2470 },
+    position: { x: 1600, y: 1370 },
     trend: "up",
     alliances: [
       { tickerId: "luxe", strength: "Strong" },
@@ -205,7 +205,7 @@ export const tickers: Ticker[] = [
     archetype: "The Influencer",
     mood: "nervous",
     regimeTags: ["choppy"],
-    position: { x: 3590, y: 2370 },
+    position: { x: 1850, y: 1270 },
     trend: "flat",
     alliances: [
       { tickerId: "cart", strength: "Strong" },
@@ -220,7 +220,7 @@ export const tickers: Ticker[] = [
     archetype: "The Host",
     mood: "erratic",
     regimeTags: ["storm"],
-    position: { x: 3750, y: 2740 },
+    position: { x: 2010, y: 1640 },
     trend: "down",
     alliances: [
       { tickerId: "cart", strength: "Link" },
@@ -235,7 +235,7 @@ export const tickers: Ticker[] = [
     archetype: "The Smuggler",
     mood: "confident",
     regimeTags: ["storm", "choppy"],
-    position: { x: 6070, y: 2420 },
+    position: { x: 3500, y: 520 },
     trend: "up",
     alliances: [
       { tickerId: "hash", strength: "Core" },
@@ -250,7 +250,7 @@ export const tickers: Ticker[] = [
     archetype: "The Validator",
     mood: "nervous",
     regimeTags: ["storm"],
-    position: { x: 6320, y: 2300 },
+    position: { x: 3750, y: 400 },
     trend: "flat",
     alliances: [
       { tickerId: "coin", strength: "Core" },
@@ -265,7 +265,7 @@ export const tickers: Ticker[] = [
     archetype: "The Router",
     mood: "erratic",
     regimeTags: ["choppy", "storm"],
-    position: { x: 6400, y: 2620 },
+    position: { x: 3830, y: 720 },
     trend: "down",
     alliances: [
       { tickerId: "coin", strength: "Strong" },
@@ -280,7 +280,7 @@ export const tickers: Ticker[] = [
     archetype: "The Gene Weaver",
     mood: "confident",
     regimeTags: ["calm"],
-    position: { x: 2590, y: 3840 },
+    position: { x: 2710, y: 1380 },
     trend: "up",
     alliances: [
       { tickerId: "pulse", strength: "Core" },
@@ -295,7 +295,7 @@ export const tickers: Ticker[] = [
     archetype: "The Healer",
     mood: "nervous",
     regimeTags: ["calm", "choppy"],
-    position: { x: 2860, y: 3730 },
+    position: { x: 2980, y: 1270 },
     trend: "flat",
     alliances: [
       { tickerId: "helx", strength: "Core" },
@@ -310,7 +310,7 @@ export const tickers: Ticker[] = [
     archetype: "The Synthesist",
     mood: "erratic",
     regimeTags: ["storm", "choppy"],
-    position: { x: 2920, y: 4050 },
+    position: { x: 3040, y: 1590 },
     trend: "down",
     alliances: [
       { tickerId: "helx", strength: "Strong" },
@@ -325,7 +325,7 @@ export const tickers: Ticker[] = [
     archetype: "The Broadcaster",
     mood: "confident",
     regimeTags: ["choppy"],
-    position: { x: 5730, y: 3790 },
+    position: { x: 3750, y: 1340 },
     trend: "up",
     alliances: [
       { tickerId: "wave", strength: "Core" },
@@ -340,7 +340,7 @@ export const tickers: Ticker[] = [
     archetype: "The Relay",
     mood: "nervous",
     regimeTags: ["calm", "choppy"],
-    position: { x: 5980, y: 3950 },
+    position: { x: 4000, y: 1500 },
     trend: "flat",
     alliances: [
       { tickerId: "beam", strength: "Core" },

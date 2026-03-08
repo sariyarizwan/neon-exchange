@@ -8,8 +8,8 @@ export const districts: District[] = [
     id: "chip-docks",
     name: "CHIP DOCKS",
     sector: "Tech",
-    center: { x: 900, y: 940 },
-    polygon: poly(900, 940, [
+    center: { x: 630, y: 570 },
+    polygon: poly(630, 570, [
       [-380, -180],
       [-180, -280],
       [120, -260],
@@ -27,8 +27,8 @@ export const districts: District[] = [
     id: "bank-towers",
     name: "BANK TOWERS",
     sector: "Financials",
-    center: { x: 2680, y: 760 },
-    polygon: poly(2680, 760, [
+    center: { x: 1590, y: 570 },
+    polygon: poly(1590, 570, [
       [-340, -200],
       [-100, -300],
       [220, -240],
@@ -46,8 +46,8 @@ export const districts: District[] = [
     id: "energy-yard",
     name: "ENERGY YARD",
     sector: "Energy",
-    center: { x: 5870, y: 940 },
-    polygon: poly(5870, 940, [
+    center: { x: 2610, y: 570 },
+    polygon: poly(2610, 570, [
       [-420, -140],
       [-180, -300],
       [120, -280],
@@ -65,8 +65,8 @@ export const districts: District[] = [
     id: "industrials-foundry",
     name: "INDUSTRIALS FOUNDRY",
     sector: "Industrials",
-    center: { x: 1320, y: 2860 },
-    polygon: poly(1320, 2860, [
+    center: { x: 660, y: 1450 },
+    polygon: poly(660, 1450, [
       [-440, -180],
       [-120, -340],
       [240, -260],
@@ -84,8 +84,8 @@ export const districts: District[] = [
     id: "consumer-strip",
     name: "CONSUMER STRIP",
     sector: "Consumer",
-    center: { x: 3500, y: 2550 },
-    polygon: poly(3500, 2550, [
+    center: { x: 1760, y: 1450 },
+    polygon: poly(1760, 1450, [
       [-520, -220],
       [-180, -360],
       [220, -340],
@@ -103,8 +103,8 @@ export const districts: District[] = [
     id: "crypto-alley",
     name: "CRYPTO ALLEY",
     sector: "Crypto / FinTech",
-    center: { x: 6240, y: 2470 },
-    polygon: poly(6240, 2470, [
+    center: { x: 3670, y: 570 },
+    polygon: poly(3670, 570, [
       [-380, -260],
       [-80, -340],
       [220, -240],
@@ -122,8 +122,8 @@ export const districts: District[] = [
     id: "bio-dome",
     name: "BIO DOME",
     sector: "Healthcare",
-    center: { x: 2740, y: 3910 },
-    polygon: poly(2740, 3910, [
+    center: { x: 2860, y: 1450 },
+    polygon: poly(2860, 1450, [
       [-360, -240],
       [-80, -360],
       [220, -260],
@@ -141,8 +141,8 @@ export const districts: District[] = [
     id: "comms-neon-ridge",
     name: "COMMS NEON RIDGE",
     sector: "Telecom / Comms",
-    center: { x: 5900, y: 3900 },
-    polygon: poly(5900, 3900, [
+    center: { x: 3920, y: 1450 },
+    polygon: poly(3920, 1450, [
       [-480, -160],
       [-180, -320],
       [180, -300],

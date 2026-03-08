@@ -3,9 +3,9 @@ export type Point = {
   y: number;
 };
 
-export const WORLD_WIDTH = 8000;
-export const WORLD_HEIGHT = 5000;
-export const HOME_WORLD_POINT: Point = { x: 3500, y: 2600 };
+export const WORLD_WIDTH = 4800;
+export const WORLD_HEIGHT = 2200;
+export const HOME_WORLD_POINT: Point = { x: 1760, y: 1450 };
 
 export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 

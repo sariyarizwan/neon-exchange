@@ -6,9 +6,7 @@ import { AmbientAudioController } from "@/components/audio/AmbientAudioControlle
 import { GuideVoiceController } from "@/components/audio/GuideVoiceController";
 import { CenterStage } from "@/components/layout/CenterStage";
 import { DistrictPopup } from "@/components/layout/DistrictPopup";
-import { FloatingChat } from "@/components/layout/FloatingChat";
 import { FloatingControls } from "@/components/layout/FloatingControls";
-import { FloatingDistrictIndicators } from "@/components/layout/FloatingDistrictIndicators";
 import { FloatingMinimap } from "@/components/layout/FloatingMinimap";
 import { RightPanel } from "@/components/layout/RightPanel";
 import { LiveDataProvider } from "@/components/LiveDataProvider";
@@ -107,10 +105,8 @@ export default function HomePage() {
         <section className="relative h-screen overflow-hidden">
           <CenterStage />
         </section>
-        <FloatingDistrictIndicators />
         <RightPanel />
         <DistrictPopup />
-        <FloatingChat />
         <FloatingMinimap />
       </div>
     </main>

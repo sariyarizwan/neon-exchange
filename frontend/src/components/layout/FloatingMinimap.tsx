@@ -7,9 +7,11 @@ import { districts } from "@/mock/districts";
 import { WORLD_HEIGHT, WORLD_WIDTH } from "@/lib/world";
 import { cn } from "@/lib/cn";
 import { useNeonStore } from "@/store/useNeonStore";
+import { FloatingChatPanel } from "./FloatingChat";
 
 export function FloatingMinimap() {
   const [legendOpen, setLegendOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const selectedDistrictId = useNeonStore((state) => state.selectedDistrictId);
   const player = useNeonStore((state) => state.player);
   const camera = useNeonStore((state) => state.camera);
@@ -17,6 +19,7 @@ export function FloatingMinimap() {
 
   return (
     <div className="fixed bottom-4 right-4 z-30 flex items-end gap-2">
+      {/* Legend panel */}
       {legendOpen ? (
         <div className="mb-1 w-[220px] rounded-2xl border border-white/10 bg-slate-950/94 p-3 shadow-[0_0_28px_rgba(0,0,0,0.4)] backdrop-blur-md">
           <div className="mb-3 flex items-center justify-between">
@@ -96,20 +99,43 @@ export function FloatingMinimap() {
         </div>
       ) : null}
 
+      {/* Buttons column + minimap */}
       <div className="flex flex-col items-end gap-2">
-        <button
-          type="button"
-          aria-label="Legend"
-          onClick={() => setLegendOpen(!legendOpen)}
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-950/88 text-sm font-bold transition",
-            legendOpen
-              ? "border-neon-cyan/50 text-cyan-100 shadow-neon-cyan"
-              : "border-slate-700 text-slate-400 hover:border-neon-cyan/35 hover:text-cyan-100"
-          )}
-        >
-          ?
-        </button>
+        {/* Chat panel floats above buttons when open */}
+        <FloatingChatPanel open={chatOpen} onToggle={() => setChatOpen(!chatOpen)} />
+
+        {/* Button row: chat + legend side by side */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Market Intel Chat"
+            onClick={() => setChatOpen(!chatOpen)}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-950/88 text-sm font-bold transition",
+              chatOpen
+                ? "border-neon-cyan/50 text-cyan-100 shadow-neon-cyan"
+                : "border-slate-700 text-slate-400 hover:border-neon-cyan/35 hover:text-cyan-100"
+            )}
+            title="Market Intel Chat"
+          >
+            &#x25A4;
+          </button>
+          <button
+            type="button"
+            aria-label="Legend"
+            onClick={() => setLegendOpen(!legendOpen)}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-950/88 text-sm font-bold transition",
+              legendOpen
+                ? "border-neon-cyan/50 text-cyan-100 shadow-neon-cyan"
+                : "border-slate-700 text-slate-400 hover:border-neon-cyan/35 hover:text-cyan-100"
+            )}
+          >
+            ?
+          </button>
+        </div>
+
+        {/* Minimap */}
         <div className="w-[200px] rounded-2xl border border-white/10 bg-slate-950/90 p-2 shadow-[0_0_20px_rgba(0,0,0,0.4)] backdrop-blur-md">
           <button
             type="button"
