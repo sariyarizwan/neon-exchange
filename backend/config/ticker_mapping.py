@@ -132,3 +132,34 @@ SECTOR_KEYWORDS: dict[str, list[str]] = {
 
 # Map sector to district ID
 SECTOR_TO_DISTRICT: dict[str, str] = {d.sector: d.id for d in DISTRICTS}
+
+# Company names for accurate ticker extraction from news headlines.
+# Short symbols (T, DE, GS) need company name matching to avoid false positives.
+COMPANY_NAMES: dict[str, list[str]] = {
+    "NVDA": ["nvidia"],
+    "AMD": ["amd", "advanced micro"],
+    "INTC": ["intel"],
+    "JPM": ["jpmorgan", "jp morgan", "jamie dimon"],
+    "BAC": ["bank of america"],
+    "GS": ["goldman sachs", "goldman"],
+    "XOM": ["exxon", "exxonmobil"],
+    "NEE": ["nextera"],
+    "CVX": ["chevron"],
+    "CAT": ["caterpillar"],
+    "UPS": ["ups", "united parcel"],
+    "DE": ["deere", "john deere"],
+    "AMZN": ["amazon"],
+    "NKE": ["nike"],
+    "MCD": ["mcdonald"],
+    "COIN": ["coinbase"],
+    "MARA": ["marathon digital", "mara holdings"],
+    "SQ": ["block inc", "square"],
+    "JNJ": ["johnson & johnson", "johnson and johnson"],
+    "MDT": ["medtronic"],
+    "MRNA": ["moderna"],
+    "META": ["meta platforms", "facebook", "instagram"],
+    "T": ["at&t", "at & t"],
+}
+
+# Symbols that are too short for word-boundary matching (<=2 chars)
+_SHORT_SYMBOLS: set[str] = {s for s in ALL_REAL_SYMBOLS if len(s) <= 2}

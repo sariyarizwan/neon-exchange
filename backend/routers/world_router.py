@@ -1,12 +1,13 @@
 import asyncio
-import json
+import hashlib
 import logging
+import time
 
 from fastapi import APIRouter, Request
 from sse_starlette.sse import EventSourceResponse
 
 from memory.shared_state import shared_memory
-from services.market_data import market_data_service
+from services.cache import snapshot_cache
 from agents.orchestrator import run_orchestrator
 
 logger = logging.getLogger(__name__)
@@ -16,17 +17,16 @@ router = APIRouter(prefix="/api/world", tags=["world"])
 @router.get("/state")
 async def get_world_state():
     """Return current full world state snapshot."""
-    return shared_memory.get_bootstrap()
+    return snapshot_cache.snapshot.bootstrap
 
 
 @router.get("/stream")
 async def world_stream(request: Request):
     """SSE stream that emits world updates every 2 seconds.
 
-    Each tick:
-    1. Advances market simulation
-    2. Optionally runs agent analysis (every 10 ticks)
-    3. Emits updated world state
+    Cache rebuilds in the background. This loop just reads the
+    pre-serialized snapshot and emits it — zero computation.
+    Agent analysis runs every 10 ticks (~20 seconds).
     """
 
     async def event_generator():
@@ -35,13 +35,9 @@ async def world_stream(request: Request):
             if await request.is_disconnected():
                 break
 
-            # Advance market
-            market_data_service.generate_tick()
-            tickers = market_data_service.get_all_tickers()
-            shared_memory.update_market_state({
-                "tickers": [t.model_dump() for t in tickers],
-                "market_mood": _mood(tickers),
-            })
+            # Sync cache state into shared_memory for agent access
+            snap = snapshot_cache.snapshot
+            shared_memory.update_market_state(snap.market_state)
 
             # Run full agent analysis every 10 ticks (~20 seconds)
             if tick_count % 10 == 0 and tick_count > 0:
@@ -53,10 +49,9 @@ async def world_stream(request: Request):
                 except Exception as e:
                     logger.warning(f"Agent cycle failed: {e}")
 
-            state = shared_memory.get_bootstrap()
             yield {
                 "event": "world_update",
-                "data": json.dumps(state, default=str),
+                "data": snap.bootstrap_json,
             }
 
             tick_count += 1
@@ -96,72 +91,92 @@ async def get_news():
 async def neon_stream(request: Request):
     """SSE stream optimized for the frontend.
 
-    Emits neon-formatted market data (keyed by frontend ticker IDs) and news
-    every 2 seconds. Does NOT run the heavy agent pipeline -- use /stream for that.
+    Emits pre-computed neon-formatted market data (keyed by frontend ticker IDs)
+    every 2 seconds. Zero computation — reads pre-serialized JSON from cache.
+    Does NOT run the heavy agent pipeline — use /stream for that.
     """
-    from services.news_feed import news_feed_service
-    from config.ticker_mapping import TICKER_BY_REAL
 
     async def event_generator():
-        tick_count = 0
         while True:
             if await request.is_disconnected():
                 break
 
-            market_data_service.generate_tick()
-            tickers = market_data_service.get_all_tickers()
-
-            # Build neon-format ticker map
-            neon_tickers = {}
-            for t in tickers:
-                change = t.change_pct
-                trend = "up" if change > 0.3 else ("down" if change < -0.3 else "flat")
-                mood = "erratic" if abs(change) > 3 else ("confident" if change > 0.5 else "nervous")
-                regime = "storm" if t.volatility_regime == "extreme" else ("choppy" if t.volatility_regime in ("high", "normal") else "calm")
-
-                neon_tickers[t.neon_id] = {
-                    "neonId": t.neon_id,
-                    "neonSymbol": t.neon_symbol,
-                    "price": t.price,
-                    "changePct": t.change_pct,
-                    "trend": trend,
-                    "mood": mood,
-                    "regime": regime,
-                    "momentum": t.momentum,
-                }
-
-            # Include fresh news every 5 ticks
-            news = []
-            if tick_count % 5 == 0:
-                news = news_feed_service.get_recent(5)
-
-            payload = {
-                "tickers": neon_tickers,
-                "news": news,
-                "tick": tick_count,
-            }
-
             yield {
                 "event": "neon_update",
-                "data": json.dumps(payload, default=str),
+                "data": snapshot_cache.snapshot.neon_stream_json,
             }
 
-            tick_count += 1
             await asyncio.sleep(2)
 
     return EventSourceResponse(event_generator())
 
 
-def _mood(tickers) -> str:
-    if not tickers:
-        return "neutral"
-    avg = sum(t.change_pct for t in tickers) / len(tickers)
-    if avg > 2:
-        return "euphoric"
-    elif avg > 0.5:
-        return "bullish"
-    elif avg < -2:
-        return "fearful"
-    elif avg < -0.5:
-        return "bearish"
-    return "cautious"
+@router.get("/evidence-feed")
+async def get_evidence_feed():
+    """Return evidence items for the frontend timeline.
+
+    Merges agent conclusions with significant market events (big movers,
+    regime changes) into EvidenceItem-compatible objects:
+    {id, timestamp, text, districtId?, tickerId?}
+    """
+    items: list[dict] = []
+
+    # 1. Agent conclusions → evidence
+    conclusions = shared_memory.agent_conclusions
+    for agent_name, conclusion in conclusions.items():
+        text = conclusion.get("summary", conclusion.get("conclusion", ""))
+        if not text:
+            continue
+        ts = conclusion.get("timestamp", time.time())
+        ts_str = time.strftime("%H:%M", time.localtime(ts)) if isinstance(ts, (int, float)) else str(ts)
+        item_id = f"agent-{agent_name}-{hashlib.md5(text[:50].encode()).hexdigest()[:8]}"
+        items.append({
+            "id": item_id,
+            "timestamp": ts_str,
+            "text": f"[{agent_name}] {text[:200]}",
+        })
+
+    # 2. Significant market events from snapshot
+    snap = snapshot_cache.snapshot
+    now_str = time.strftime("%H:%M", time.localtime(snap.timestamp)) if snap.timestamp else "00:00"
+
+    # Big movers (|change| > 3%)
+    for td in snap.all_tickers:
+        change = td.get("change_pct", 0)
+        if abs(change) >= 3.0:
+            neon_id = td.get("neon_id", "")
+            district_id = td.get("district_id", "")
+            direction = "surging" if change > 0 else "plunging"
+            item = {
+                "id": f"mover-{neon_id}-{snapshot_cache.rebuild_count}",
+                "timestamp": now_str,
+                "text": f"{td.get('neon_symbol', td.get('symbol', '?'))} {direction} {change:+.1f}%",
+            }
+            if district_id:
+                item["districtId"] = district_id
+            if neon_id:
+                item["tickerId"] = neon_id
+            items.append(item)
+
+    # District regime alerts (storm = notable)
+    for ds in snap.district_states:
+        if ds.get("weather") == "storm":
+            items.append({
+                "id": f"storm-{ds['district_id']}-{snapshot_cache.rebuild_count}",
+                "timestamp": now_str,
+                "text": f"{ds['name']} district entered storm conditions",
+                "districtId": ds["district_id"],
+            })
+
+    # Breadth signal if extreme
+    breadth = snap.signals.get("breadth", {})
+    signal = breadth.get("signal", "")
+    if signal in ("strong_bullish", "strong_bearish"):
+        label = "strong rally" if signal == "strong_bullish" else "heavy selling"
+        items.append({
+            "id": f"breadth-{snapshot_cache.rebuild_count}",
+            "timestamp": now_str,
+            "text": f"Market breadth shows {label} ({breadth.get('advancers', 0)}A/{breadth.get('decliners', 0)}D)",
+        })
+
+    return {"evidence": items}

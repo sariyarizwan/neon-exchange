@@ -8,6 +8,7 @@ API is unavailable.
 import logging
 import os
 import random
+import re
 import time
 from datetime import datetime, timedelta
 
@@ -19,6 +20,8 @@ from config.ticker_mapping import (
     SECTOR_KEYWORDS,
     SECTOR_TO_DISTRICT,
     ALL_REAL_SYMBOLS,
+    COMPANY_NAMES,
+    _SHORT_SYMBOLS,
     TickerConfig,
 )
 
@@ -109,6 +112,12 @@ for _tc in TICKERS:
     key = _SECTOR_KEY_MAP.get(_tc.sector, _tc.sector.lower())
     _SECTOR_TICKERS.setdefault(key, []).append(_tc.real_symbol)
 
+# Direct lookup from internal sector key to district ID
+_SECTOR_KEY_TO_DISTRICT: dict[str, str] = {
+    _SECTOR_KEY_MAP.get(sec, sec.lower()): dist_id
+    for sec, dist_id in SECTOR_TO_DISTRICT.items()
+}
+
 
 def _classify_sector(headline: str) -> str:
     text = headline.lower()
@@ -122,13 +131,74 @@ def _classify_sector(headline: str) -> str:
     return best_sector
 
 
+# Pre-compiled regex for symbols >= 3 chars (word boundary match)
+_LONG_SYM_PATTERNS: dict[str, re.Pattern] = {
+    sym: re.compile(r"\b" + re.escape(sym) + r"\b", re.IGNORECASE)
+    for sym in ALL_REAL_SYMBOLS
+    if len(sym) >= 3
+}
+
+# Stopwords for headline fingerprinting
+_STOPWORDS = frozenset(
+    "a an the is are was were be been being have has had do does did "
+    "will would shall should may might can could and or but not no nor "
+    "for to of in on at by from with as it its this that these those "
+    "he she they we you i my his her their our your".split()
+)
+
+
 def _extract_tickers(headline: str) -> list[str]:
-    text = headline.upper()
+    """Extract ticker symbols using word-boundary matching and company names.
+
+    Long symbols (>=3 chars) use regex word boundaries.
+    Short symbols (T, DE, GS) only match via company name lookup to avoid
+    false positives like 'T' matching 'Trump'.
+    """
     found: list[str] = []
-    for sym in ALL_REAL_SYMBOLS:
-        if sym in text:
+    text_lower = headline.lower()
+
+    # Long symbols: regex word boundary
+    for sym, pattern in _LONG_SYM_PATTERNS.items():
+        if pattern.search(headline):
             found.append(sym)
+
+    # Short symbols: match via company names only
+    for sym in _SHORT_SYMBOLS:
+        names = COMPANY_NAMES.get(sym, [])
+        for name in names:
+            if name in text_lower:
+                found.append(sym)
+                break
+
+    # Also check company names for long symbols not caught by ticker mention
+    for sym in ALL_REAL_SYMBOLS:
+        if sym in found:
+            continue
+        names = COMPANY_NAMES.get(sym, [])
+        for name in names:
+            if name in text_lower:
+                found.append(sym)
+                break
+
     return found
+
+
+def _fingerprint(headline: str) -> frozenset[str]:
+    """Create a token fingerprint for deduplication."""
+    tokens = re.findall(r"[a-z0-9]+", headline.lower())
+    return frozenset(t for t in tokens if t not in _STOPWORDS and len(t) > 2)
+
+
+def _is_duplicate(fp: frozenset[str], existing: list[frozenset[str]]) -> bool:
+    """Check if a fingerprint has >50% Jaccard overlap with any existing."""
+    for efp in existing:
+        if not fp or not efp:
+            continue
+        intersection = len(fp & efp)
+        union = len(fp | efp)
+        if union > 0 and intersection / union > 0.5:
+            return True
+    return False
 
 
 def _score_severity(headline: str) -> str:
@@ -155,6 +225,7 @@ class NewsFeedService:
         self._last_fetch: float = 0.0
         self._fetch_interval: float = 120.0  # seconds between Finnhub fetches
         self._mock_mode: bool = not bool(self._finnhub_key)
+        self._fingerprints: list[frozenset[str]] = []  # for deduplication
 
         if self._finnhub_key:
             self._fetch_real_news()
@@ -185,15 +256,18 @@ class NewsFeedService:
                 if not headline_text:
                     continue
 
+                # Deduplicate
+                fp = _fingerprint(headline_text)
+                if _is_duplicate(fp, self._fingerprints):
+                    continue
+                self._fingerprints.append(fp)
+                if len(self._fingerprints) > 50:
+                    self._fingerprints = self._fingerprints[-50:]
+
                 sector = _classify_sector(headline_text)
                 tickers_found = _extract_tickers(headline_text)
                 severity = _score_severity(headline_text)
-
-                district_id = None
-                for sec_name, dist_id in SECTOR_TO_DISTRICT.items():
-                    if _SECTOR_KEY_MAP.get(sec_name, "") == sector:
-                        district_id = dist_id
-                        break
+                district_id = _SECTOR_KEY_TO_DISTRICT.get(sector)
 
                 entry = {
                     "headline": headline_text,
