@@ -13,7 +13,7 @@ import { useNeonStore } from "@/store/useNeonStore";
 export function DistrictPopup() {
   const districtPopupId = useNeonStore((state) => state.districtPopupId);
   const closeDistrictPopup = useNeonStore((state) => state.closeDistrictPopup);
-  const { tickers: liveTickers, news: liveNews } = useLiveData();
+  const { tickers: liveTickers, news: liveNews, districtStates } = useLiveData();
   const { snapshot, candles, loading, error } = useMarketData(districtPopupId);
 
   const district = useMemo(
@@ -65,17 +65,21 @@ export function DistrictPopup() {
               <span className="text-xs font-semibold uppercase tracking-[0.14em] text-white">
                 {district.name}
               </span>
-              <Badge
-                variant={
-                  district.regime === "storm"
-                    ? "magenta"
-                    : district.regime === "choppy"
-                      ? "amber"
-                      : "lime"
-                }
-              >
-                {district.regime}
-              </Badge>
+              {(() => {
+                const live = districtStates?.[district.id];
+                const weather = live?.weather ?? district.regime;
+                const mood = live?.mood ?? "calm";
+                return (
+                  <>
+                    <Badge variant={weather === "storm" ? "magenta" : weather === "fog" || weather === "rain" ? "amber" : "lime"}>
+                      {weather}
+                    </Badge>
+                    <Badge variant={mood === "panic" ? "magenta" : mood === "tense" ? "amber" : mood === "euphoric" ? "cyan" : "lime"}>
+                      {mood}
+                    </Badge>
+                  </>
+                );
+              })()}
             </div>
             <button
               type="button"
@@ -170,24 +174,35 @@ export function DistrictPopup() {
               <div className="mb-2 text-[9px] uppercase tracking-[0.14em] text-slate-500">
                 District Stats
               </div>
-              <div className="grid grid-cols-2 gap-2 text-[10px]">
-                <div>
-                  <span className="text-slate-500">Sector: </span>
-                  <span className="text-slate-200">{district.sector}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Traffic: </span>
-                  <span className="text-slate-200">{district.traffic}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Tickers: </span>
-                  <span className="text-slate-200">{districtTickers.length}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500">Regime: </span>
-                  <span className="text-slate-200">{district.regime}</span>
-                </div>
-              </div>
+              {(() => {
+                const live = districtStates?.[district.id];
+                return (
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div>
+                      <span className="text-slate-500">Sector: </span>
+                      <span className="text-slate-200">{district.sector}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Traffic: </span>
+                      <span className="text-slate-200">{live?.traffic ?? district.traffic}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Tickers: </span>
+                      <span className="text-slate-200">{districtTickers.length}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Weather: </span>
+                      <span className="text-slate-200">{live?.weather ?? district.regime}</span>
+                    </div>
+                    {live ? (
+                      <div>
+                        <span className="text-slate-500">Glow: </span>
+                        <span className="text-slate-200">{(live.glow_intensity * 100).toFixed(0)}%</span>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </ResizablePanel>

@@ -18,10 +18,17 @@ type FloatingControlsProps = {
   user: MockUser;
 };
 
-const trafficDots: Record<string, number> = {
+const trafficDotsStatic: Record<string, number> = {
   Low: 1,
   Med: 2,
-  High: 3
+  High: 3,
+};
+
+const trafficDotsLive: Record<string, number> = {
+  low: 1,
+  normal: 2,
+  heavy: 3,
+  gridlock: 3,
 };
 
 export function FloatingControls({ user }: FloatingControlsProps) {
@@ -57,7 +64,7 @@ export function FloatingControls({ user }: FloatingControlsProps) {
   const setPersona = useNeonStore((state) => state.setPersona);
   const toggleMic = useNeonStore((state) => state.toggleMic);
 
-  const { tickers: liveTickers, connected: liveConnected, isLive } = useLiveData();
+  const { tickers: liveTickers, connected: liveConnected, isLive, districtStates } = useLiveData();
 
   const avatar = avatarOptions.find((option) => option.id === user.avatarId) ?? avatarOptions[0];
 
@@ -196,23 +203,34 @@ export function FloatingControls({ user }: FloatingControlsProps) {
                         <div className="mt-1 text-[11px] text-slate-400">{district.summary}</div>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <Badge variant={district.regime === "storm" ? "magenta" : district.regime === "choppy" ? "amber" : "lime"}>
-                          {district.regime}
-                        </Badge>
-                        <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">
-                          {Array.from({ length: 3 }, (_, index) => (
-                            <span
-                              key={`${district.id}-${index}`}
-                              className={cn(
-                                "h-1.5 w-4 rounded-full border",
-                                index < trafficDots[district.traffic]
-                                  ? "border-neon-cyan/40 bg-neon-cyan/40"
-                                  : "border-slate-800 bg-slate-900"
-                              )}
-                            />
-                          ))}
-                          {district.traffic}
-                        </div>
+                        {(() => {
+                          const live = districtStates?.[district.id];
+                          const weather = live?.weather ?? district.regime;
+                          const traffic = live?.traffic ?? district.traffic.toLowerCase();
+                          const dots = live ? trafficDotsLive[traffic] ?? 1 : trafficDotsStatic[district.traffic] ?? 1;
+                          const weatherLabel = live ? weather : district.regime;
+                          return (
+                            <>
+                              <Badge variant={weather === "storm" ? "magenta" : weather === "fog" || weather === "choppy" ? "amber" : "lime"}>
+                                {weatherLabel}
+                              </Badge>
+                              <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                                {Array.from({ length: 3 }, (_, index) => (
+                                  <span
+                                    key={`${district.id}-${index}`}
+                                    className={cn(
+                                      "h-1.5 w-4 rounded-full border",
+                                      index < dots
+                                        ? "border-neon-cyan/40 bg-neon-cyan/40"
+                                        : "border-slate-800 bg-slate-900"
+                                    )}
+                                  />
+                                ))}
+                                {traffic}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </button>

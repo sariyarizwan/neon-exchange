@@ -8,8 +8,6 @@ import { ResizablePanel } from "@/components/ui/ResizablePanel";
 import { Tabs } from "@/components/ui/Tabs";
 import { useLiveData } from "@/components/LiveDataProvider";
 import { districts } from "@/mock/districts";
-import { rumors } from "@/mock/rumors";
-import { getScenariosForTicker } from "@/mock/scenarios";
 import { tickers } from "@/mock/tickers";
 import { cn } from "@/lib/cn";
 import { useNeonStore } from "@/store/useNeonStore";
@@ -30,25 +28,81 @@ export function RightPanel() {
   const setActiveRightPanelTab = useNeonStore((state) => state.setActiveRightPanelTab);
   const triggerDistrictPulse = useNeonStore((state) => state.triggerDistrictPulse);
   const focusDistrict = useNeonStore((state) => state.focusDistrict);
-  const addEvidence = useNeonStore((state) => state.addEvidence);
-  const setSelectedDistrictId = useNeonStore((state) => state.setSelectedDistrictId);
   const clearSelection = useNeonStore((state) => state.clearSelection);
 
-  const { tickers: liveTickers, news: liveNews } = useLiveData();
+  const { tickers: liveTickers, news: liveNews, signals } = useLiveData();
 
   const ticker = tickers.find((entry) => entry.id === selectedTickerId) ?? null;
   const liveTicker = ticker && liveTickers ? liveTickers[ticker.id] : null;
   const district = districts.find((entry) => entry.id === ticker?.districtId) ?? null;
-  const scenarios = getScenariosForTicker(ticker);
-  const activeScenario = scenarios[0] ?? null;
-  const relatedTickers = ticker
-    ? ticker.alliances
-        .map((alliance) => ({
-          strength: alliance.strength,
-          ticker: tickers.find((entry) => entry.id === alliance.tickerId) ?? null
-        }))
-        .filter((entry): entry is { strength: "Link" | "Strong" | "Core"; ticker: NonNullable<typeof entry.ticker> } => Boolean(entry.ticker))
-    : [];
+
+  // Build alliances from live correlations when available, fall back to static
+  const relatedTickers = (() => {
+    if (ticker && signals?.correlations?.top_positive) {
+      // Find correlations involving this ticker's real symbol or neon id
+      const tickerSymbols = new Set([ticker.id, ticker.symbol.toLowerCase()]);
+      const correlated = signals.correlations.top_positive
+        .filter((pair) => {
+          const aLower = pair.a.toLowerCase();
+          const bLower = pair.b.toLowerCase();
+          return tickerSymbols.has(aLower) || tickerSymbols.has(bLower);
+        })
+        .map((pair) => {
+          const aLower = pair.a.toLowerCase();
+          const otherKey = tickerSymbols.has(aLower) ? pair.b : pair.a;
+          // Find the ticker by neon_id, symbol, or real symbol
+          const otherTicker = tickers.find(
+            (t) => t.id === otherKey.toLowerCase() || t.symbol === otherKey.toUpperCase()
+          );
+          const strength = pair.r > 0.7 ? "Core" as const : pair.r > 0.5 ? "Strong" as const : "Link" as const;
+          return otherTicker ? { ticker: otherTicker, strength, correlation: pair.r } : null;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+      if (correlated.length > 0) return correlated;
+    }
+    // Fall back to static alliances from mock data
+    return ticker
+      ? ticker.alliances
+          .map((alliance) => ({
+            strength: alliance.strength,
+            ticker: tickers.find((entry) => entry.id === alliance.tickerId) ?? null,
+            correlation: null as number | null,
+          }))
+          .filter((entry): entry is { strength: "Link" | "Strong" | "Core"; ticker: NonNullable<typeof entry.ticker>; correlation: number | null } => Boolean(entry.ticker))
+      : [];
+  })();
+
+  // Generate scenario text from live data
+  const scenarioText = (() => {
+    if (!ticker) return null;
+    const mood = liveTicker?.mood ?? ticker.mood;
+    const trend = liveTicker?.trend ?? ticker.trend;
+    const regime = liveTicker?.regime ?? "calm";
+    const momentum = liveTicker?.momentum ?? 0;
+
+    if (regime === "storm") {
+      return {
+        title: "Shock Event",
+        summary: `${ticker.symbol} is under storm conditions. High volatility detected with ${Math.abs(momentum * 100).toFixed(0)}% momentum. Watch for cascading effects across allied names.`,
+        probability: "High" as const,
+        chips: ["Storm", ticker.symbol, district?.sector ?? ""],
+      };
+    }
+    if (mood === "erratic") {
+      return {
+        title: "Mean Reversion",
+        summary: `${ticker.symbol} shows erratic behavior — possible exhaustion of a ${trend === "up" ? "rally" : trend === "down" ? "selloff" : "range"}. District baseline may pull it back.`,
+        probability: "Med" as const,
+        chips: ["Rebalance", ticker.symbol, "Cooling Tape"],
+      };
+    }
+    return {
+      title: "Continuation",
+      summary: `${ticker.symbol} maintains ${mood} posture with ${trend} bias. ${liveTicker ? `Price at $${liveTicker.price.toFixed(2)} (${liveTicker.changePct >= 0 ? "+" : ""}${liveTicker.changePct.toFixed(2)}%)` : "Connecting to live feed..."}`,
+      probability: mood === "confident" ? "High" as const : "Med" as const,
+      chips: [ticker.symbol, district?.name ?? "", "Order Flow"],
+    };
+  })();
 
   const hasTicker = Boolean(ticker);
 
@@ -155,7 +209,7 @@ export function RightPanel() {
         <Card className="rounded-[1.4rem] p-4">
           <div className="text-[10px] uppercase tracking-[0.16em] text-slate-500">Dialogue</div>
           <div className="mt-2 text-sm leading-6 text-slate-100">
-            {activeScenario?.summary ?? `${ticker!.symbol} is active in the block. Walk closer to hear fresh street commentary.`}
+            {scenarioText?.summary ?? `${ticker!.symbol} is active in the block. Walk closer to hear fresh street commentary.`}
           </div>
           <div className="mt-3 flex gap-2">
             <Button
@@ -180,19 +234,19 @@ export function RightPanel() {
               <Tabs tabs={detailTabs} value={activeRightPanelTab} onChange={setActiveRightPanelTab} />
             </div>
 
-            {activeRightPanelTab === "scenes" && activeScenario ? (
+            {activeRightPanelTab === "scenes" && scenarioText ? (
               <Card className="rounded-[1.4rem] p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.14em] text-white">{activeScenario.title}</div>
-                    <p className="mt-2 text-sm text-slate-300">{activeScenario.summary}</p>
+                    <div className="text-xs font-semibold uppercase tracking-[0.14em] text-white">{scenarioText.title}</div>
+                    <p className="mt-2 text-sm text-slate-300">{scenarioText.summary}</p>
                   </div>
-                  <Badge variant={activeScenario.probability === "High" ? "magenta" : activeScenario.probability === "Med" ? "amber" : "lime"}>
-                    {activeScenario.probability}
+                  <Badge variant={scenarioText.probability === "High" ? "magenta" : scenarioText.probability === "Med" ? "amber" : "lime"}>
+                    {scenarioText.probability}
                   </Badge>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {activeScenario.rippleChips.map((chip) => (
+                  {scenarioText.chips.filter(Boolean).map((chip) => (
                     <Badge key={chip} variant="slate">
                       {chip}
                     </Badge>
@@ -209,7 +263,10 @@ export function RightPanel() {
                       <div key={entry.ticker.id} className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/70 px-3 py-2">
                         <div>
                           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-white">{entry.ticker.symbol}</div>
-                          <div className="text-[11px] text-slate-400">{entry.ticker.fullName}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {entry.ticker.fullName}
+                            {entry.correlation != null ? ` (r=${entry.correlation.toFixed(2)})` : ""}
+                          </div>
                         </div>
                         <Badge variant={entry.strength === "Core" ? "magenta" : entry.strength === "Strong" ? "cyan" : "lime"}>
                           {entry.strength}
@@ -229,7 +286,7 @@ export function RightPanel() {
                   {liveNews && liveNews.length > 0 ? (
                     <>
                       <div className="text-[10px] uppercase tracking-[0.16em] text-lime-400">Live News</div>
-                      {liveNews.slice(0, 3).map((item, i) => (
+                      {liveNews.slice(0, 5).map((item, i) => (
                         <div key={`news-${i}`} className="rounded-2xl border border-lime-400/20 bg-slate-950/70 px-3 py-3">
                           <div className="text-[10px] uppercase tracking-[0.16em] text-lime-400">{item.source} - {item.sector}</div>
                           <div className="mt-1 text-sm text-slate-200">{item.headline}</div>
@@ -237,42 +294,23 @@ export function RightPanel() {
                       ))}
                     </>
                   ) : null}
-                  {evidenceTimeline.slice(0, 5).map((entry) => (
-                    <div key={entry.id} className="rounded-2xl border border-slate-800 bg-slate-950/70 px-3 py-3">
-                      <div className="text-[10px] uppercase tracking-[0.16em] text-neon-cyan">{entry.timestamp}</div>
-                      <div className="mt-1 text-sm text-slate-200">{entry.text}</div>
-                    </div>
-                  ))}
+                  {evidenceTimeline.length > 0 ? (
+                    <>
+                      <div className="mt-2 text-[10px] uppercase tracking-[0.16em] text-neon-cyan">Evidence Timeline</div>
+                      {evidenceTimeline.slice(0, 5).map((entry) => (
+                        <div key={entry.id} className="rounded-2xl border border-slate-800 bg-slate-950/70 px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-[0.16em] text-neon-cyan">{entry.timestamp}</div>
+                          <div className="mt-1 text-sm text-slate-200">{entry.text}</div>
+                        </div>
+                      ))}
+                    </>
+                  ) : null}
+                  {!liveNews?.length && !evidenceTimeline.length ? (
+                    <div className="text-sm text-slate-400">Connecting to market feed...</div>
+                  ) : null}
                 </div>
               </Card>
             ) : null}
-
-            <details className="rounded-[1.4rem] border border-slate-800 bg-slate-950/70 p-4">
-              <summary className="cursor-pointer list-none text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                District Rumors
-              </summary>
-              <div className="mt-3 grid gap-2">
-                {rumors.slice(0, 3).map((poster) => (
-                  <button
-                    key={poster.id}
-                    type="button"
-                    onClick={() => {
-                      focusDistrict(poster.districtId);
-                      setSelectedDistrictId(poster.districtId);
-                      setActiveRightPanelTab("evidence");
-                      triggerDistrictPulse(poster.districtId, "rumor", 2600);
-                      addEvidence({
-                        districtId: poster.districtId,
-                        text: `Rumor pulse activated: ${poster.headline}`
-                      });
-                    }}
-                    className="rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-left text-sm text-slate-200 transition hover:border-neon-magenta/35"
-                  >
-                    {poster.headline}
-                  </button>
-                ))}
-              </div>
-            </details>
           </div>
         ) : null}
       </div>

@@ -28,6 +28,13 @@ type ScenePulse = {
   kind: "scene" | "rumor" | null;
 };
 
+type QuestToast = {
+  id: string;
+  text: string;
+  type: string;
+  createdAt: number;
+};
+
 type NeonState = {
   selectedTickerId: string | null;
   selectedDistrictId: string | null;
@@ -39,6 +46,7 @@ type NeonState = {
   showStorms: boolean;
   showRumors: boolean;
   stormModeActive: boolean;
+  questToasts: QuestToast[];
   dock: {
     connected: boolean;
     micActive: boolean;
@@ -96,6 +104,8 @@ type NeonState = {
   zoomIn: () => void;
   zoomOut: () => void;
   addEvidence: (entry: Omit<EvidenceItem, "id" | "timestamp">) => void;
+  addQuestToast: (text: string, type: string) => void;
+  dismissQuestToast: (id: string) => void;
 };
 
 const MIN_ZOOM = 0.5;
@@ -118,28 +128,7 @@ const initialTranscript = [
   "News Desk: Gemini Live + ADK wiring is pending."
 ];
 
-const initialEvidence: EvidenceItem[] = [
-  {
-    id: "ev-1",
-    timestamp: "20:41",
-    districtId: "consumer-strip",
-    text: "Consumer Strip sentiment lights accelerated after the second neon open."
-  },
-  {
-    id: "ev-2",
-    timestamp: "20:46",
-    tickerId: "coin",
-    districtId: "crypto-alley",
-    text: "Coin Circuit alliances widened into telecom rails during the last pulse."
-  },
-  {
-    id: "ev-3",
-    timestamp: "20:52",
-    tickerId: "flux",
-    districtId: "energy-yard",
-    text: "Energy Yard traffic bands crossed high-volatility threshold."
-  }
-];
+const initialEvidence: EvidenceItem[] = [];
 
 const initialNewsstand = newsstands.find((entry) => entry.districtId === "consumer-strip") ?? newsstands[0];
 let overlayRestoreTimeout: number | null = null;
@@ -156,6 +145,7 @@ export const useNeonStore = create<NeonState>((set, get) => ({
   showStorms: true,
   showRumors: true,
   stormModeActive: false,
+  questToasts: [],
   dock: {
     connected: true,
     micActive: false,
@@ -527,5 +517,16 @@ export const useNeonStore = create<NeonState>((set, get) => ({
         },
         ...state.evidenceTimeline
       ].slice(0, 16)
-    }))
+    })),
+  addQuestToast: (text, type) =>
+    set((state) => ({
+      questToasts: [
+        { id: `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, text, type, createdAt: Date.now() },
+        ...state.questToasts,
+      ].slice(0, 5)
+    })),
+  dismissQuestToast: (id) =>
+    set((state) => ({
+      questToasts: state.questToasts.filter((t) => t.id !== id)
+    })),
 }));
