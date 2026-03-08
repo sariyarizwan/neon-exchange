@@ -67,8 +67,19 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
 
     resizeObserver.observe(canvas);
 
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const delta = event.deltaY > 0 ? -0.1 : 0.1;
+      const state = useNeonStore.getState();
+      const newZoom = Math.max(0.5, Math.min(2.0, state.camera.zoom + delta));
+      useNeonStore.getState().setZoom(newZoom);
+    };
+
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+
     return () => {
       resizeObserver.disconnect();
+      canvas.removeEventListener("wheel", handleWheel);
     };
   }, [canvasRef]);
 
@@ -197,7 +208,7 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
           x += vx * dt;
           y += vy * dt;
 
-          const clamped = clampCameraPosition(x, y, camera.viewportWidth, camera.viewportHeight);
+          const clamped = clampCameraPosition(x, y, camera.viewportWidth, camera.viewportHeight, camera.zoom);
           if (clamped.x !== x) {
             vx *= 0.42;
             x = clamped.x;
@@ -272,8 +283,8 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
       useNeonStore.getState().markWorldMotion();
     }
 
-    const maxX = Math.max(0, WORLD_WIDTH - state.camera.viewportWidth);
-    const maxY = Math.max(0, WORLD_HEIGHT - state.camera.viewportHeight);
+    const maxX = Math.max(0, WORLD_WIDTH - state.camera.viewportWidth / state.camera.zoom);
+    const maxY = Math.max(0, WORLD_HEIGHT - state.camera.viewportHeight / state.camera.zoom);
 
     let nextX = state.camera.x - dx;
     let nextY = state.camera.y - dy;
@@ -285,7 +296,7 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
       nextY = state.camera.y - dy * 0.35;
     }
 
-    const clamped = clampCameraPosition(nextX, nextY, state.camera.viewportWidth, state.camera.viewportHeight);
+    const clamped = clampCameraPosition(nextX, nextY, state.camera.viewportWidth, state.camera.viewportHeight, state.camera.zoom);
 
     useNeonStore.getState().setCamera({
       x: clamped.x,

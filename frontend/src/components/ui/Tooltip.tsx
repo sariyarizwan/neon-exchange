@@ -10,7 +10,7 @@ type TooltipProps = {
 export function Tooltip({ children, x, y, className }: TooltipProps) {
   return (
     <div
-      className={cn("pointer-events-none absolute z-30 min-w-[180px] rounded-2xl border border-neon-cyan/30 bg-slate-950/92 p-3 shadow-neon-cyan", className)}
+      className={cn("pointer-events-none absolute z-30 min-w-[180px] rounded-2xl border border-neon-cyan/30 bg-[#020617] p-3 shadow-neon-cyan backdrop-blur-md", className)}
       style={{ left: x, top: y, transform: "translate(14px, -50%)" }}
     >
       {children}

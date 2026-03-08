@@ -9,9 +9,11 @@ export const HOME_WORLD_POINT: Point = { x: 3500, y: 2600 };
 
 export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-export const clampCameraPosition = (x: number, y: number, viewportWidth: number, viewportHeight: number) => {
-  const maxX = Math.max(0, WORLD_WIDTH - viewportWidth);
-  const maxY = Math.max(0, WORLD_HEIGHT - viewportHeight);
+export const clampCameraPosition = (x: number, y: number, viewportWidth: number, viewportHeight: number, zoom = 1) => {
+  const effectiveWidth = viewportWidth / zoom;
+  const effectiveHeight = viewportHeight / zoom;
+  const maxX = Math.max(0, WORLD_WIDTH - effectiveWidth);
+  const maxY = Math.max(0, WORLD_HEIGHT - effectiveHeight);
 
   return {
     x: clamp(x, 0, maxX),

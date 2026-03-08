@@ -1,7 +1,7 @@
 .page {
   position: relative;
   min-height: 100vh;
-  overflow: hidden;
+  overflow-y: auto;
   background:
     radial-gradient(circle at top, rgba(80, 241, 255, 0.14), transparent 24%),
     radial-gradient(circle at 88% 10%, rgba(255, 77, 220, 0.12), transparent 18%),
@@ -11,7 +11,7 @@
 
 .page::before {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
   background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 0, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 4px);
   mix-blend-mode: screen;
@@ -21,7 +21,7 @@
 
 .page::after {
   content: "";
-  position: absolute;
+  position: fixed;
   inset: 0;
   background:
     radial-gradient(circle at 24% 18%, rgba(255, 255, 255, 0.05), transparent 14%),
@@ -35,14 +35,14 @@
   z-index: 1;
   display: flex;
   min-height: 100vh;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 32px clamp(24px, 4vw, 48px);
 }
 
 .shell {
   width: min(1280px, 100%);
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(120, 140, 170, 0.18);
   border-radius: 32px;
   background:
@@ -488,7 +488,11 @@
     padding: 18px;
   }
 
-  .hero,
+  .hero {
+    min-height: auto;
+    padding: 24px;
+  }
+
   .panel {
     padding: 24px;
   }

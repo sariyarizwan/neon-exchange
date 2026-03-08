@@ -12,7 +12,8 @@ import {
   newsstands,
   pointsOfInterest,
   stockNpcProfiles,
-  stockOutboundUrls
+  stockOutboundUrls,
+  worldColliders
 } from "@/mock/cityWorld";
 import { districtConnections, districts } from "@/mock/districts";
 import { districtNewsBoards, tickerNews } from "@/mock/news";
@@ -100,6 +101,17 @@ type NpcRuntime = {
   color: string;
   style: "walker" | "vendor" | "broker" | "runner";
   tickerId?: string;
+};
+
+const npcCollidesAt = (nx: number, ny: number): boolean => {
+  const box = { x: nx - 8, y: ny - 12, width: 16, height: 20 };
+  return worldColliders.some(
+    (c) =>
+      box.x < c.x + c.width &&
+      box.x + box.width > c.x &&
+      box.y < c.y + c.height &&
+      box.y + box.height > c.y
+  );
 };
 
 const TILE = 32;
@@ -430,12 +442,24 @@ export function CityCanvas() {
   const bubbleTimeoutRef = useRef<number | null>(null);
   const introTimeoutRef = useRef<number | null>(null);
 
-  const [hoverEntity, setHoverEntity] = useState<HoverEntity>(null);
+  const [hoverEntity, setHoverEntityState] = useState<HoverEntity>(null);
+  const hoverEntityRef = useRef<HoverEntity>(null);
   const [pluginPrompt, setPluginPrompt] = useState<PluginPrompt | null>(null);
   const [interactionBubble, setInteractionBubble] = useState<InteractionBubble | null>(null);
   const [worldNewsBubble, setWorldNewsBubble] = useState<WorldNewsBubble | null>(null);
-  const [introTickerId, setIntroTickerId] = useState<string | null>(null);
+  const [introTickerId, setIntroTickerIdState] = useState<string | null>(null);
+  const introTickerIdRef = useRef<string | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<SelectedMarker | null>(null);
+
+  const setHoverEntity = (entity: HoverEntity) => {
+    hoverEntityRef.current = entity;
+    setHoverEntityState(entity);
+  };
+
+  const setIntroTickerId = (id: string | null) => {
+    introTickerIdRef.current = id;
+    setIntroTickerIdState(id);
+  };
 
   const camera = useNeonStore((state) => state.camera);
   const player = useNeonStore((state) => state.player);
@@ -966,8 +990,11 @@ export function CityCanvas() {
 
     const draw = (time: number) => {
       const state = useNeonStore.getState();
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
+      const zoom = state.camera.zoom;
+      const rawWidth = canvas.clientWidth;
+      const rawHeight = canvas.clientHeight;
+      const width = rawWidth / zoom;
+      const height = rawHeight / zoom;
       const currentCamera = state.camera;
       const stormFactor = state.stormModeActive
         ? 1
@@ -975,7 +1002,7 @@ export function CityCanvas() {
           ? Math.max(0, (state.scenePulse.expiresAt - Date.now()) / Math.max(1, state.scenePulse.expiresAt - state.scenePulse.startedAt))
           : 0;
 
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
       ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, width, height);
 
@@ -1049,8 +1076,15 @@ export function CityCanvas() {
 
         const dx = npc.targetX - npc.x;
         const dy = npc.targetY - npc.y;
-        npc.x += dx * 0.012 * npc.speed * 3.8;
-        npc.y += dy * 0.012 * npc.speed * 3.8;
+        const proposedX = npc.x + dx * 0.012 * npc.speed * 3.8;
+        const proposedY = npc.y + dy * 0.012 * npc.speed * 3.8;
+        const blockedX = npcCollidesAt(proposedX, npc.y);
+        const blockedY = npcCollidesAt(npc.x, proposedY);
+        npc.x = blockedX ? npc.x : proposedX;
+        npc.y = blockedY ? npc.y : proposedY;
+        if (blockedX || blockedY) {
+          npc.nextDecisionAt = time + 200;
+        }
 
         const playerDx = state.player.x - npc.x;
         const playerDy = state.player.y - npc.y;
@@ -1081,7 +1115,7 @@ export function CityCanvas() {
 
       visibleProps.forEach((prop) => {
         const showLabel =
-          (hoverEntity?.kind === "prop" && hoverEntity.prop.id === prop.id) ||
+          (hoverEntityRef.current?.kind === "prop" && hoverEntityRef.current.prop.id === prop.id) ||
           selectedMarker?.id === prop.id ||
           Math.hypot(state.player.x - prop.x, state.player.y - prop.y) < 96;
         drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id], showLabel);
@@ -1122,8 +1156,8 @@ export function CityCanvas() {
           const ticker = tickers.find((entry) => entry.id === npc.tickerId)!;
           const district = districtsById[ticker.districtId];
           const selected = ticker.id === state.selectedTickerId;
-          const introPulse = introTickerId === ticker.id ? 3 + Math.sin(time / 40) * 1.4 : selected ? 2 : 0;
-          if (selected || introTickerId === ticker.id) {
+          const introPulse = introTickerIdRef.current === ticker.id ? 3 + Math.sin(time / 40) * 1.4 : selected ? 2 : 0;
+          if (selected || introTickerIdRef.current === ticker.id) {
             drawLightPool(ctx, x, y + 10, 38 + introPulse * 5, district.accent, 0.16);
             drawRing(ctx, x, y + 11, district.accent, introPulse);
           }
@@ -1139,7 +1173,7 @@ export function CityCanvas() {
             introPulse,
             bob
           );
-          if (selected || introTickerId === ticker.id || Math.hypot(state.player.x - npc.x, state.player.y - npc.y) < 140 || hoverEntity?.kind === "ticker" && hoverEntity.ticker.id === ticker.id) {
+          if (selected || introTickerIdRef.current === ticker.id || Math.hypot(state.player.x - npc.x, state.player.y - npc.y) < 140 || hoverEntityRef.current?.kind === "ticker" && hoverEntityRef.current.ticker.id === ticker.id) {
             drawPixelRect(ctx, x - 22, y - 34, 44, 11, "#081019");
             drawPixelFrame(ctx, x - 22, y - 34, 44, 11, hexToRgba(district.accent, 0.34));
             ctx.fillStyle = "#F6FBFF";
@@ -1285,7 +1319,7 @@ export function CityCanvas() {
       window.cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
     };
-  }, [activeAvatar.body, activeAvatar.trim, activeAvatar.visor, districtsById, guide.message, guide.speaking, hoverEntity, introTickerId, showAlliances, showPoiMarkers]);
+  }, [activeAvatar.body, activeAvatar.trim, activeAvatar.visor, districtsById, guide.message, guide.speaking, showAlliances, showPoiMarkers]);
 
   const getStockRuntimeAt = (worldX: number, worldY: number) =>
     npcRuntimeRef.current.find((npc) => npc.type === "stock" && Math.hypot(worldX - npc.x, worldY - npc.y) <= 18) ?? null;
@@ -1517,7 +1551,7 @@ export function CityCanvas() {
   };
 
   return (
-    <div className="relative h-full min-h-[620px] w-full overflow-hidden rounded-[1.8rem]">
+    <div className="relative h-full w-full overflow-hidden">
       <canvas
         ref={canvasRef}
         className={cn("h-full w-full touch-none bg-transparent", controls.isDragging ? "cursor-grabbing" : "cursor-grab")}
@@ -1531,6 +1565,28 @@ export function CityCanvas() {
       />
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(51,245,255,0.06),transparent_30%),radial-gradient(circle_at_85%_12%,rgba(255,61,242,0.08),transparent_24%)]" />
+
+      <div className="absolute bottom-4 right-[220px] z-30 flex flex-col gap-1">
+        <button
+          type="button"
+          aria-label="Zoom in"
+          onClick={() => useNeonStore.getState().zoomIn()}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-neon-cyan/35 bg-slate-950/88 text-sm font-bold text-cyan-100 transition hover:bg-neon-cyan/14"
+        >
+          +
+        </button>
+        <div className="text-center text-[10px] font-semibold tabular-nums text-slate-400">
+          {Math.round(camera.zoom * 100)}%
+        </div>
+        <button
+          type="button"
+          aria-label="Zoom out"
+          onClick={() => useNeonStore.getState().zoomOut()}
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-neon-cyan/35 bg-slate-950/88 text-sm font-bold text-cyan-100 transition hover:bg-neon-cyan/14"
+        >
+          -
+        </button>
+      </div>
 
       {pluginMode && pluginPrompt ? (
         <div
@@ -1567,16 +1623,10 @@ export function CityCanvas() {
       {worldNewsBubble ? (
         <div
           className={cn(
-            "pointer-events-none absolute z-30 w-[240px] border-2 border-cyan-300/30 bg-slate-950/94 px-3 py-3 text-left shadow-[0_0_28px_rgba(51,245,255,0.14)]",
-            worldNewsBubble.kind === "newsstand" ? "w-[300px]" : "w-[240px]"
+            "pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 border-2 border-cyan-300/30 bg-[#020617] px-4 py-4 text-left shadow-[0_0_28px_rgba(51,245,255,0.14)] backdrop-blur-md",
+            worldNewsBubble.kind === "newsstand" ? "w-[320px]" : "w-[280px]"
           )}
-          style={{
-            left: worldNewsBubble.anchorX - camera.x,
-            top: worldNewsBubble.anchorY - camera.y,
-            transform: "translate(-50%, -100%)"
-          }}
         >
-          <div className="absolute -bottom-3 left-1/2 h-3 w-3 -translate-x-1/2 border-b-2 border-r-2 border-cyan-300/30 bg-slate-950/94" />
           <div className="mb-2 font-['Orbitron','Rajdhani','Arial_Narrow',sans-serif] text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-100">
             {worldNewsBubble.title}
           </div>

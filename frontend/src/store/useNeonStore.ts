@@ -89,8 +89,15 @@ type NeonState = {
   clearSelection: () => void;
   triggerDistrictPulse: (districtId: string, kind: "scene" | "rumor", duration?: number) => void;
   clearStormMode: () => void;
+  setZoom: (zoom: number) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
   addEvidence: (entry: Omit<EvidenceItem, "id" | "timestamp">) => void;
 };
+
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.0;
+const ZOOM_STEP = 0.1;
 
 const initialViewport = { width: 1400, height: 860 };
 const initialTopLeft = cameraTopLeftForWorldPoint(
@@ -266,10 +273,10 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     })),
   setViewport: (width, height) =>
     set((state) => {
-      const position = clampCameraPosition(state.camera.x, state.camera.y, width, height);
+      const position = clampCameraPosition(state.camera.x, state.camera.y, width, height, state.camera.zoom);
       const target =
         state.camera.targetX !== null && state.camera.targetY !== null
-          ? clampCameraPosition(state.camera.targetX, state.camera.targetY, width, height)
+          ? clampCameraPosition(state.camera.targetX, state.camera.targetY, width, height, state.camera.zoom)
           : null;
 
       return {
@@ -478,6 +485,27 @@ export const useNeonStore = create<NeonState>((set, get) => ({
               kind: null
             }
           : state.scenePulse
+    })),
+  setZoom: (zoom) =>
+    set((state) => ({
+      camera: {
+        ...state.camera,
+        zoom: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoom))
+      }
+    })),
+  zoomIn: () =>
+    set((state) => ({
+      camera: {
+        ...state.camera,
+        zoom: Math.min(MAX_ZOOM, state.camera.zoom + ZOOM_STEP)
+      }
+    })),
+  zoomOut: () =>
+    set((state) => ({
+      camera: {
+        ...state.camera,
+        zoom: Math.max(MIN_ZOOM, state.camera.zoom - ZOOM_STEP)
+      }
     })),
   addEvidence: (entry) =>
     set((state) => ({
