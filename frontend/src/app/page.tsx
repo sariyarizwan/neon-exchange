@@ -9,7 +9,9 @@ import { DistrictPopup } from "@/components/layout/DistrictPopup";
 import { FloatingControls } from "@/components/layout/FloatingControls";
 import { FloatingMinimap } from "@/components/layout/FloatingMinimap";
 import { RightPanel } from "@/components/layout/RightPanel";
+import { QuestToasts } from "@/components/layout/QuestToasts";
 import { LiveDataProvider } from "@/components/LiveDataProvider";
+import { useQuestTriggers } from "@/hooks/useQuestTriggers";
 import { cn } from "@/lib/cn";
 import { readStoredAuth } from "@/lib/mockAuth";
 import { useNeonStore } from "@/store/useNeonStore";
@@ -93,6 +95,7 @@ export default function HomePage() {
 
   return (
     <LiveDataProvider>
+    <QuestTriggerWatcher />
     <main className="relative min-h-screen overflow-hidden bg-base-950 text-slate-100">
       <AmbientAudioController />
       <GuideVoiceController />
@@ -107,9 +110,16 @@ export default function HomePage() {
         </section>
         <RightPanel />
         <DistrictPopup />
+        <QuestToasts />
         <FloatingMinimap />
       </div>
     </main>
     </LiveDataProvider>
   );
+}
+
+/** Invisible component that runs the quest trigger hook inside LiveDataProvider context */
+function QuestTriggerWatcher() {
+  useQuestTriggers();
+  return null;
 }

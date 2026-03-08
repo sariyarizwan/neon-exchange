@@ -19,6 +19,8 @@ import { districtConnections, districts } from "@/mock/districts";
 import { districtNewsBoards, tickerNews } from "@/mock/news";
 import { tickers } from "@/mock/tickers";
 import { Tooltip } from "@/components/ui/Tooltip";
+import { useLiveData } from "@/components/LiveDataProvider";
+import type { DistrictLiveState, LiveSignals, NeonTickerData } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { useNeonStore } from "@/store/useNeonStore";
 import type { District } from "@/types/district";
@@ -439,6 +441,17 @@ export function CityCanvas() {
   const billboardFramesRef = useRef<Record<string, number>>({});
   const playerTrailRef = useRef<Array<{ x: number; y: number; age: number }>>([]);
   const lightningRef = useRef<{ nextAt: number; flash: number }>({ nextAt: 0, flash: 0 });
+
+  // Live data refs — updated by React, read by animation frame (no re-render)
+  const { tickers: liveTickers, districtStates, signals, news: liveNews } = useLiveData();
+  const liveTickersRef = useRef<Record<string, NeonTickerData> | null>(null);
+  const districtStatesRef = useRef<Record<string, DistrictLiveState> | null>(null);
+  const signalsRef = useRef<LiveSignals | null>(null);
+  const liveNewsRef = useRef<typeof liveNews>(null);
+  liveTickersRef.current = liveTickers ?? null;
+  districtStatesRef.current = districtStates ?? null;
+  signalsRef.current = signals ?? null;
+  liveNewsRef.current = liveNews ?? null;
   const bubbleTimeoutRef = useRef<number | null>(null);
   const introTimeoutRef = useRef<number | null>(null);
 
@@ -1029,11 +1042,16 @@ export function CityCanvas() {
       const width = rawWidth / zoom;
       const height = rawHeight / zoom;
       const currentCamera = state.camera;
+      // Storm factor: combine scene pulse with live district weather
+      const ds = districtStatesRef.current;
+      const anyDistrictStorm = ds ? Object.values(ds).some((d) => d.weather === "storm") : false;
       const stormFactor = state.stormModeActive
         ? 1
-        : state.scenePulse.expiresAt
-          ? Math.max(0, (state.scenePulse.expiresAt - Date.now()) / Math.max(1, state.scenePulse.expiresAt - state.scenePulse.startedAt))
-          : 0;
+        : anyDistrictStorm
+          ? 0.6
+          : state.scenePulse.expiresAt
+            ? Math.max(0, (state.scenePulse.expiresAt - Date.now()) / Math.max(1, state.scenePulse.expiresAt - state.scenePulse.startedAt))
+            : 0;
 
       ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
       ctx.imageSmoothingEnabled = false;
@@ -1071,6 +1089,38 @@ export function CityCanvas() {
         ctx.lineTo(toX, toY);
         ctx.stroke();
       });
+
+      // --- Alliance cables from live correlations ---
+      const sigs = signalsRef.current;
+      if (sigs?.correlations?.top_positive) {
+        const districtForSector = Object.fromEntries(districts.map((d) => [d.sector.toLowerCase(), d]));
+        sigs.correlations.top_positive.forEach((pair) => {
+          if (pair.r < 0.5) return;
+          // Find districts for the correlated tickers
+          const tickerA = liveTickersRef.current?.[pair.a.toLowerCase()];
+          const tickerB = liveTickersRef.current?.[pair.b.toLowerCase()];
+          if (!tickerA?.districtId || !tickerB?.districtId || tickerA.districtId === tickerB.districtId) return;
+          const distA = districtsById[tickerA.districtId];
+          const distB = districtsById[tickerB.districtId];
+          if (!distA || !distB) return;
+          const ax = distA.center.x - currentCamera.x;
+          const ay = distA.center.y - currentCamera.y;
+          const bx = distB.center.x - currentCamera.x;
+          const by = distB.center.y - currentCamera.y;
+          if ((ax < -300 && bx < -300) || (ay < -300 && by < -300) || (ax > width + 300 && bx > width + 300)) return;
+          const opacity = 0.3 + (pair.r - 0.5) * 1.0; // 0.5->0.3, 1.0->0.8
+          const pulse = 0.8 + Math.sin(time / 600 + pair.r * 10) * 0.2;
+          ctx.strokeStyle = hexToRgba(distA.accent, opacity * pulse);
+          ctx.lineWidth = 2 + pair.r * 3;
+          ctx.lineCap = "round";
+          ctx.setLineDash([8, 6]);
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        });
+      }
 
       districtZones.forEach((zone) => {
         const district = districtsById[zone.districtId];
@@ -1126,16 +1176,26 @@ export function CityCanvas() {
       }
 
       npcRuntimeRef.current.forEach((npc, index) => {
+        // Scale citizen speed by live traffic: low=0.5x, normal=1x, heavy=1.6x, gridlock=2x
+        const trafficMultiplier = npc.type === "citizen" && ds?.[npc.districtId]
+          ? ({ low: 0.5, normal: 1, heavy: 1.6, gridlock: 2.0 }[ds[npc.districtId].traffic] ?? 1)
+          : 1;
+        // For stock NPCs, scale patrol radius by momentum (high momentum = restless)
+        const liveTicker = npc.type === "stock" && npc.tickerId ? liveTickersRef.current?.[npc.tickerId] : null;
+        const momentumBoost = liveTicker ? 1 + Math.abs(liveTicker.momentum ?? 0) * 2 : 1;
+
         if (time > npc.nextDecisionAt) {
-          npc.targetX = npc.homeX + Math.cos(time / 320 + index * 1.7) * npc.patrolRadius;
-          npc.targetY = npc.homeY + Math.sin(time / 420 + index * 1.1) * npc.patrolRadius;
+          const effectiveRadius = npc.patrolRadius * momentumBoost;
+          npc.targetX = npc.homeX + Math.cos(time / 320 + index * 1.7) * effectiveRadius;
+          npc.targetY = npc.homeY + Math.sin(time / 420 + index * 1.1) * effectiveRadius;
           npc.nextDecisionAt = time + 1800 + (index % 4) * 500;
         }
 
         const dx = npc.targetX - npc.x;
         const dy = npc.targetY - npc.y;
-        const proposedX = npc.x + dx * 0.012 * npc.speed * 3.8;
-        const proposedY = npc.y + dy * 0.012 * npc.speed * 3.8;
+        const effectiveSpeed = npc.speed * trafficMultiplier;
+        const proposedX = npc.x + dx * 0.012 * effectiveSpeed * 3.8;
+        const proposedY = npc.y + dy * 0.012 * effectiveSpeed * 3.8;
         const blockedX = npcCollidesAt(proposedX, npc.y);
         const blockedY = npcCollidesAt(npc.x, proposedY);
         npc.x = blockedX ? npc.x : proposedX;
@@ -1155,8 +1215,24 @@ export function CityCanvas() {
         }
 
         if (time > npc.speechUntil && (index + Math.floor(time / 3000)) % 14 === 0 && Math.hypot(playerDx, playerDy) < 160) {
-          npc.speechText = npc.dialogues[(Math.floor(time / 3000) + index) % npc.dialogues.length];
-          npc.speechUntil = time + 1800;
+          // For stock NPCs, prefer live news headlines over static dialogues
+          const npcLive = npc.type === "stock" && npc.tickerId ? liveTickersRef.current?.[npc.tickerId] : null;
+          const newsItems = liveNewsRef.current;
+          const tickerObj = npc.type === "stock" && npc.tickerId ? tickers.find((t) => t.id === npc.tickerId) : null;
+          const matchingNews = newsItems && tickerObj
+            ? newsItems.find((n) => n.sector?.toLowerCase() === districts.find((d) => d.id === tickerObj.districtId)?.sector?.toLowerCase())
+            : null;
+          if (matchingNews) {
+            // Show news headline as speech (truncated to 24 chars)
+            npc.speechText = matchingNews.headline.length > 24 ? matchingNews.headline.slice(0, 22) + ".." : matchingNews.headline;
+          } else if (npcLive) {
+            // Show live mood/price as speech
+            const pctStr = npcLive.changePct >= 0 ? `+${npcLive.changePct.toFixed(1)}%` : `${npcLive.changePct.toFixed(1)}%`;
+            npc.speechText = `${npcLive.mood} ${pctStr}`;
+          } else {
+            npc.speechText = npc.dialogues[(Math.floor(time / 3000) + index) % npc.dialogues.length];
+          }
+          npc.speechUntil = time + 2400;
         }
         if (npc.speechUntil < time) {
           npc.speechText = null;
@@ -1215,21 +1291,36 @@ export function CityCanvas() {
           return;
         }
 
-        const bob = Math.sin(time / 260 + npc.bobSeed) * 1.2;
+        // Live mood drives bob speed + jitter for stock NPCs
+        const liveNpc = npc.type === "stock" && npc.tickerId ? liveTickersRef.current?.[npc.tickerId] : null;
+        const npcMood = liveNpc?.mood ?? "calm";
+        const bobSpeed = npcMood === "erratic" ? 140 : npcMood === "nervous" ? 200 : 260;
+        const jitter = npcMood === "erratic" ? (Math.random() - 0.5) * 1.4 : 0;
+        const bob = Math.sin(time / bobSpeed + npc.bobSeed) * 1.2 + jitter;
         if (npc.type === "stock") {
           const ticker = tickers.find((entry) => entry.id === npc.tickerId)!;
           const district = districtsById[ticker.districtId];
           const selected = ticker.id === state.selectedTickerId;
           const introPulse = introTickerIdRef.current === ticker.id ? 3 + Math.sin(time / 40) * 1.4 : selected ? 2 : 0;
+          // Live mood drives aura: confident=bright, nervous=dim, erratic=flickering
+          const moodAuraAlpha = npcMood === "confident" ? 0.25 : npcMood === "erratic" ? 0.12 + Math.sin(time / 80) * 0.1 : npcMood === "nervous" ? 0.08 : 0.16;
+          const moodAuraSize = npcMood === "confident" ? 46 : npcMood === "nervous" ? 30 : 38;
           if (selected || introTickerIdRef.current === ticker.id) {
-            drawLightPool(ctx, x, y + 10, 38 + introPulse * 5, district.accent, 0.16);
+            drawLightPool(ctx, x, y + 10, moodAuraSize + introPulse * 5, district.accent, moodAuraAlpha);
             drawRing(ctx, x, y + 11, district.accent, introPulse);
+          } else if (liveNpc) {
+            // Always show a subtle aura for live-connected NPCs
+            drawLightPool(ctx, x, y + 10, moodAuraSize, district.accent, moodAuraAlpha * 0.5);
           }
+          // Body color: confident=accent tint, nervous=darker, erratic=flicker
+          const bodyColor = selected
+            ? hexToRgba(district.accent, 0.95)
+            : npcMood === "confident" ? hexToRgba(district.accent, 0.5) : npcMood === "erratic" ? hexToRgba(district.accent, 0.3 + Math.sin(time / 60) * 0.15) : "#1C2638";
           drawCharacter(
             ctx,
             x,
             y,
-            selected ? hexToRgba(district.accent, 0.95) : "#1C2638",
+            bodyColor,
             "#E8F6FF",
             "#09101A",
             district.accent,
