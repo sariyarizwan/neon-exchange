@@ -53,6 +53,7 @@ export function FloatingControls({ user }: FloatingControlsProps) {
   const setPluginMode = useNeonStore((state) => state.setPluginMode);
   const setAvatarId = useNeonStore((state) => state.setAvatarId);
   const setShowPoiMarkers = useNeonStore((state) => state.setShowPoiMarkers);
+  const setDistrictPopupId = useNeonStore((state) => state.setDistrictPopupId);
   const setPersona = useNeonStore((state) => state.setPersona);
   const toggleMic = useNeonStore((state) => state.toggleMic);
 
@@ -178,7 +179,10 @@ export function FloatingControls({ user }: FloatingControlsProps) {
                   <button
                     key={district.id}
                     type="button"
-                    onClick={() => focusDistrict(district.id)}
+                    onClick={() => {
+                      focusDistrict(district.id);
+                      setDistrictPopupId(district.id);
+                    }}
                     className={cn(
                       "w-full rounded-3xl border px-3 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon-cyan/70",
                       selected

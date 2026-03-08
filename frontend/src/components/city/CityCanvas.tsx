@@ -628,10 +628,34 @@ export function CityCanvas() {
       }
     };
 
+    const drawVariantAccents = (zone: DistrictZone, x: number, y: number, theme: { floor: string; line: string; neon: string; shop: string; puddle: string; hazard: string }) => {
+      if (zone.tileVariant === "energy") {
+        for (let index = 0; index < 6; index += 1) {
+          drawPixelRect(ctx, x + zone.streetInset + 40 + index * 48, y + zone.streetInset + 34, 24, 4, theme.hazard);
+        }
+      }
+      if (zone.tileVariant === "tech") {
+        for (let index = 0; index < 5; index += 1) {
+          drawPixelRect(ctx, x + zone.streetInset + 32 + index * 56, y + zone.height / 2 + 90, 30, 2, hexToRgba(theme.neon, 0.36));
+        }
+      }
+      if (zone.tileVariant === "finance") {
+        for (let index = 0; index < 4; index += 1) {
+          drawPixelRect(ctx, x + zone.streetInset + 48 + index * 74, y + zone.streetInset + 24, 44, 4, hexToRgba(theme.neon, 0.24));
+        }
+      }
+    };
+
     const drawZone = (zone: DistrictZone, district: District, time: number, cameraX: number, cameraY: number) => {
       const theme = zoneShadeByVariant[zone.tileVariant];
       const x = pixel(zone.x - cameraX);
       const y = pixel(zone.y - cameraY);
+
+      // Off-screen culling
+      if (x + zone.width + 80 < 0 || y + zone.height + 80 < 0 || x - 80 > canvas.clientWidth / (useNeonStore.getState().camera.zoom || 1) || y - 80 > canvas.clientHeight / (useNeonStore.getState().camera.zoom || 1)) {
+        return;
+      }
+
       const selected = district.id === useNeonStore.getState().selectedDistrictId;
       const pulsing = district.id === useNeonStore.getState().scenePulse.districtId;
       const intensity = pulsing ? 0.62 : selected ? 0.34 : 0.16;
@@ -689,22 +713,7 @@ export function CityCanvas() {
         hexToRgba(theme.line, 0.72)
       );
 
-      if (zone.tileVariant === "energy") {
-        for (let index = 0; index < 6; index += 1) {
-          drawPixelRect(ctx, x + zone.streetInset + 40 + index * 48, y + zone.streetInset + 34, 24, 4, theme.hazard);
-          drawPixelRect(ctx, x + zone.width - zone.streetInset - 72, y + zone.streetInset + 120 + index * 36, 28, 4, theme.hazard);
-        }
-      }
-      if (zone.tileVariant === "tech") {
-        for (let index = 0; index < 5; index += 1) {
-          drawPixelRect(ctx, x + zone.streetInset + 32 + index * 56, y + zone.height / 2 + 90, 30, 2, hexToRgba(theme.neon, 0.36));
-        }
-      }
-      if (zone.tileVariant === "finance") {
-        for (let index = 0; index < 4; index += 1) {
-          drawPixelRect(ctx, x + zone.streetInset + 48 + index * 74, y + zone.streetInset + 24, 44, 4, hexToRgba(theme.neon, 0.24));
-        }
-      }
+      drawVariantAccents(zone, x, y, theme);
 
       for (let index = 0; index < 6; index += 1) {
         const cableY = y + zone.streetInset + 54 + index * 78;
@@ -933,13 +942,29 @@ export function CityCanvas() {
           drawPixelRect(ctx, screenX + 2, screenY - 30, 26, 6, "#13C98D");
           drawPixelRect(ctx, screenX + 8, screenY - 36, 14, 6, "#1DE3A1");
           break;
-        case "newsstand":
-          drawPixelRect(ctx, screenX, screenY - 24, 40, 26, "#171C28");
-          drawPixelRect(ctx, screenX + 2, screenY - 30, 36, 8, "#0B1017");
-          drawPixelRect(ctx, screenX + 4, screenY - 20, 32, 12, hexToRgba(prop.accent, glow + 0.08));
-          drawPixelRect(ctx, screenX + 6, screenY - 6, 28, 4, "#D7EEFF");
-          drawPixelRect(ctx, screenX + 10, screenY + 2, 20, 4, "#0B0E15");
+        case "newsstand": {
+          // Vault-style stall: wider body with sign board and pillar columns
+          const stallW = 70;
+          const stallH = 50;
+          // Main body
+          drawPixelRect(ctx, screenX, screenY - stallH, stallW, stallH, "#171C28");
+          // Pillar columns
+          drawPixelRect(ctx, screenX, screenY - stallH, 4, stallH - 4, "#242C3A");
+          drawPixelRect(ctx, screenX + stallW - 4, screenY - stallH, 4, stallH - 4, "#242C3A");
+          // Sign board on top
+          drawPixelRect(ctx, screenX - 2, screenY - stallH - 12, stallW + 4, 14, "#0B1017");
+          drawPixelRect(ctx, screenX + 4, screenY - stallH - 10, stallW - 8, 10, hexToRgba(prop.accent, 0.32 + glow * 0.14));
+          ctx.fillStyle = "#FFF5D8";
+          ctx.font = "bold 9px monospace";
+          ctx.fillText("NEWS", screenX + stallW / 2 - 12, screenY - stallH - 2);
+          // Counter / display area
+          drawPixelRect(ctx, screenX + 8, screenY - stallH + 16, stallW - 16, 14, hexToRgba(prop.accent, glow + 0.1));
+          // Shelf
+          drawPixelRect(ctx, screenX + 10, screenY - 10, stallW - 20, 4, "#D7EEFF");
+          // Base
+          drawPixelRect(ctx, screenX + 14, screenY - 2, stallW - 28, 4, "#0B0E15");
           break;
+        }
         case "street-lamp":
           drawPixelRect(ctx, screenX + 6, screenY - 34, 4, 36, "#1D2634");
           drawPixelRect(ctx, screenX, screenY - 40, 16, 8, hexToRgba("#FFF7C2", 0.75 + glow * 0.2));
@@ -1052,6 +1077,25 @@ export function CityCanvas() {
         drawZone(zone, district, time, currentCamera.x, currentCamera.y);
       });
 
+      if (zoom >= 0.6) {
+        districtZones.forEach((zone) => {
+          const district = districtsById[zone.districtId];
+          const theme = districtThemes[zone.districtId];
+          const labelX = district.center.x - currentCamera.x;
+          const labelY = district.center.y - currentCamera.y;
+          if (labelX < -200 || labelX > width + 200 || labelY < -200 || labelY > height + 200) return;
+          const prevAlign = ctx.textAlign;
+          ctx.textAlign = "center";
+          ctx.font = "bold 13px monospace";
+          ctx.fillStyle = hexToRgba(district.accent, 0.7);
+          ctx.fillText(`${theme?.icon ?? ""} ${district.name}`, labelX, labelY - 8);
+          ctx.font = "10px monospace";
+          ctx.fillStyle = hexToRgba(district.accent, 0.4);
+          ctx.fillText(district.sector, labelX, labelY + 8);
+          ctx.textAlign = prevAlign;
+        });
+      }
+
       districtSurfaces.forEach((surface) => {
         drawSurface(surface, currentCamera.x, currentCamera.y, time);
       });
@@ -1133,6 +1177,12 @@ export function CityCanvas() {
           selectedMarker?.id === prop.id ||
           Math.hypot(state.player.x - prop.x, state.player.y - prop.y) < 96;
         drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id], showLabel);
+        if (prop.type === "newsstand") {
+          const vendorX = prop.x + 50 - currentCamera.x;
+          const vendorY = prop.y - currentCamera.y;
+          const bob = Math.sin(time / 300) * 0.8;
+          drawCharacter(ctx, vendorX, vendorY, "#2C213E", "#F8E8FF", "#0A0C12", prop.accent, "left", 0, bob);
+        }
         if (selectedMarker?.kind !== "ticker" && selectedMarker?.id === prop.id) {
           const markerX = prop.x - currentCamera.x + prop.width / 2;
           const markerY = prop.y - currentCamera.y + 6;

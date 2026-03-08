@@ -67,19 +67,8 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
 
     resizeObserver.observe(canvas);
 
-    const handleWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const delta = event.deltaY > 0 ? -0.1 : 0.1;
-      const state = useNeonStore.getState();
-      const newZoom = Math.max(0.5, Math.min(2.0, state.camera.zoom + delta));
-      useNeonStore.getState().setZoom(newZoom);
-    };
-
-    canvas.addEventListener("wheel", handleWheel, { passive: false });
-
     return () => {
       resizeObserver.disconnect();
-      canvas.removeEventListener("wheel", handleWheel);
     };
   }, [canvasRef]);
 
@@ -144,8 +133,8 @@ export function useCameraControls(canvasRef: RefObject<HTMLCanvasElement | null>
         const stepY = (vertical / magnitude) * playerSpeed * dt;
         const proposedX = clamp(player.x + stepX, 18, WORLD_WIDTH - 18);
         const proposedY = clamp(player.y + stepY, 18, WORLD_HEIGHT - 18);
-        const safeX = collidesAt(proposedX, player.y) ? player.x : proposedX;
-        const safeY = collidesAt(safeX, proposedY) ? player.y : proposedY;
+        const safeX = proposedX;
+        const safeY = proposedY;
         const facing = Math.abs(horizontal) > Math.abs(vertical) ? (horizontal > 0 ? "right" : "left") : vertical > 0 ? "down" : "up";
 
         useNeonStore.getState().setPlayer({

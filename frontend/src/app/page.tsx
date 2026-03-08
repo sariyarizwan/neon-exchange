@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { AmbientAudioController } from "@/components/audio/AmbientAudioController";
 import { GuideVoiceController } from "@/components/audio/GuideVoiceController";
 import { CenterStage } from "@/components/layout/CenterStage";
+import { DistrictPopup } from "@/components/layout/DistrictPopup";
+import { FloatingChat } from "@/components/layout/FloatingChat";
 import { FloatingControls } from "@/components/layout/FloatingControls";
 import { FloatingDistrictIndicators } from "@/components/layout/FloatingDistrictIndicators";
 import { FloatingMinimap } from "@/components/layout/FloatingMinimap";
@@ -107,6 +109,8 @@ export default function HomePage() {
         </section>
         <FloatingDistrictIndicators />
         <RightPanel />
+        <DistrictPopup />
+        <FloatingChat />
         <FloatingMinimap />
       </div>
     </main>

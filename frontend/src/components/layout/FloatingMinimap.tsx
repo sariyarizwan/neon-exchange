@@ -51,11 +51,28 @@ export function FloatingMinimap() {
                 <div>WASD / Arrows - Move</div>
                 <div>Shift - Sprint</div>
                 <div>Click NPC - Select ticker</div>
-                <div>Scroll - Zoom</div>
+                <div>Buttons - Zoom</div>
                 <div>Drag - Pan camera</div>
                 <div>Space - Push-to-talk</div>
                 <div>/ - Search tickers</div>
                 <div>Esc - Clear selection</div>
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 text-[9px] uppercase tracking-[0.14em] text-slate-500">NPC Types</div>
+              <div className="grid gap-1 text-[10px]">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-neon-cyan" />
+                  <span className="text-slate-400">Stock NPC</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2.5 w-4 rounded-sm bg-purple-400/60" />
+                  <span className="text-slate-400">Newsstand Vendor</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-slate-500" />
+                  <span className="text-slate-400">Citizen</span>
+                </div>
               </div>
             </div>
             <div>

@@ -48,7 +48,48 @@ export function getVoiceWebSocketUrl(): string {
   return `${base}/api/voice`;
 }
 
+export async function fetchMarketSnapshot(districtId?: string): Promise<NeonMarketState> {
+  const url = districtId
+    ? `${API_URL}/api/market/snapshot?district=${encodeURIComponent(districtId)}`
+    : `${API_URL}/api/market/snapshot`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Snapshot fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchTickerHistory(tickerId: string): Promise<OHLCCandle[]> {
+  const res = await fetch(`${API_URL}/api/market/history/${encodeURIComponent(tickerId)}`);
+  if (!res.ok) throw new Error(`History fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function sendChatMessage(
+  message: string,
+  context?: { districtId?: string | null; tickerId?: string | null }
+): Promise<ChatResponse> {
+  const res = await fetch(`${API_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, context }),
+  });
+  if (!res.ok) throw new Error(`Chat failed: ${res.status}`);
+  return res.json();
+}
+
 // --- Types ---
+
+export type OHLCCandle = {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  timestamp: number;
+};
+
+export type ChatResponse = {
+  reply: string;
+  context?: Record<string, unknown>;
+};
 
 export type NeonTickerData = {
   neonId: string;

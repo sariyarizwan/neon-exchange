@@ -45,7 +45,7 @@ const propSizeByType: Record<WorldPropType, { width: number; height: number }> =
   doorway: { width: 26, height: 34 },
   stairs: { width: 38, height: 18 },
   "palm-tree": { width: 30, height: 42 },
-  newsstand: { width: 38, height: 30 },
+  newsstand: { width: 70, height: 50 },
   "street-lamp": { width: 16, height: 40 },
   "drone-dock": { width: 34, height: 20 },
   manhole: { width: 18, height: 18 },

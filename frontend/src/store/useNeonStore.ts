@@ -54,6 +54,9 @@ type NeonState = {
   activeNewsstandDistrictId: string | null;
   scenePulse: ScenePulse;
   evidenceTimeline: EvidenceItem[];
+  districtPopupId: string | null;
+  setDistrictPopupId: (id: string | null) => void;
+  closeDistrictPopup: () => void;
   setSelectedTickerId: (tickerId: string | null) => void;
   setSelectedDistrictId: (districtId: string | null) => void;
   setActiveRightPanelTab: (tab: RightPanelTab) => void;
@@ -201,6 +204,9 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     kind: null
   },
   evidenceTimeline: initialEvidence,
+  districtPopupId: null,
+  setDistrictPopupId: (id) => set(() => ({ districtPopupId: id })),
+  closeDistrictPopup: () => set(() => ({ districtPopupId: null })),
   setSelectedTickerId: (tickerId) =>
     set(() => {
       const ticker = tickers.find((entry) => entry.id === tickerId);

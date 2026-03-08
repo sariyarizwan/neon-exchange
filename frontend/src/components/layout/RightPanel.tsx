@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { ResizablePanel } from "@/components/ui/ResizablePanel";
 import { Tabs } from "@/components/ui/Tabs";
 import { useLiveData } from "@/components/LiveDataProvider";
 import { districts } from "@/mock/districts";
@@ -93,8 +94,14 @@ export function RightPanel() {
   }
 
   return (
-    <aside
-      className="fixed right-4 top-4 z-30 flex max-h-[calc(100vh-7rem)] w-[340px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-950/94 shadow-[0_0_40px_rgba(0,0,0,0.5)] backdrop-blur-md max-[600px]:left-4 max-[600px]:w-auto"
+    <aside className="fixed right-4 top-4 z-30 max-[600px]:left-4">
+    <ResizablePanel
+      initialWidth={340}
+      initialHeight={600}
+      minWidth={280}
+      minHeight={300}
+      storageKey="right-panel"
+      className="flex flex-col overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)]"
     >
       <div className="border-b border-white/5 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(8,12,18,0.92))] px-4 py-4 backdrop-blur-sm">
         <div className="flex items-start justify-between gap-3">
@@ -153,6 +160,7 @@ export function RightPanel() {
           <div className="mt-3 flex gap-2">
             <Button
               size="sm"
+              className="shadow-[0_0_0_1px_rgba(51,245,255,0.18),0_0_8px_rgba(51,245,255,0.08)]"
               onClick={() => {
                 focusDistrict(ticker!.districtId);
                 triggerDistrictPulse(ticker!.districtId, "scene");
@@ -268,6 +276,7 @@ export function RightPanel() {
           </div>
         ) : null}
       </div>
+    </ResizablePanel>
     </aside>
   );
 }
