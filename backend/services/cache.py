@@ -322,10 +322,29 @@ class SnapshotCache:
         }
 
         # Neon stream payload (compact — sent every 2s via SSE)
+        # Includes district_states and signals for data-driven city visuals
         neon_stream_payload = {
             "tickers": neon_tickers,
             "news": news[:5],
             "tick": self._rebuild_count,
+            "district_states": {
+                ds["district_id"]: {
+                    "weather": ds.get("weather", "clear"),
+                    "traffic": ds.get("traffic", "normal"),
+                    "mood": ds.get("mood", "calm"),
+                    "glow_intensity": ds.get("glow_intensity", 0.5),
+                }
+                for ds in district_states
+            },
+            "signals": {
+                "correlations": {
+                    "top_positive": signals.get("correlations", {}).get("top_positive", [])[:10],
+                    "top_negative": signals.get("correlations", {}).get("top_negative", [])[:5],
+                },
+                "sector_strength": signals.get("sector_strength", {}),
+                "breadth": signals.get("breadth", {}),
+                "regimes": signals.get("regimes", {}),
+            },
         }
 
         # --- Rich district states (weather/traffic/mood/glow from signals) ---

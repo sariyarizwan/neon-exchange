@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createNeonStream, fetchNeonState, type NeonTickerData } from "@/lib/api";
+import {
+  createNeonStream,
+  fetchNeonState,
+  type DistrictLiveState,
+  type LiveSignals,
+  type NeonTickerData,
+  type NewsItem,
+} from "@/lib/api";
 
 /**
  * Connects to the backend SSE stream and provides live market data
@@ -14,6 +21,9 @@ export function useLiveMarket() {
   const [marketMood, setMarketMood] = useState<string>("cautious");
   const [isLive, setIsLive] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [districtStates, setDistrictStates] = useState<Record<string, DistrictLiveState> | null>(null);
+  const [signals, setSignals] = useState<LiveSignals | null>(null);
+  const [news, setNews] = useState<NewsItem[] | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -24,6 +34,9 @@ export function useLiveMarket() {
       if (cancelled) return;
       setTickers(data.tickers);
       setConnected(true);
+      if (data.district_states) setDistrictStates(data.district_states);
+      if (data.signals) setSignals(data.signals);
+      if (data.news) setNews(data.news);
     });
     cleanupRef.current = cleanup;
 
@@ -47,5 +60,5 @@ export function useLiveMarket() {
     };
   }, []);
 
-  return { tickers, marketMood, isLive, connected };
+  return { tickers, districtStates, signals, news, marketMood, isLive, connected };
 }

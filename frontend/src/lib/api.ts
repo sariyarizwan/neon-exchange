@@ -67,7 +67,7 @@ export async function sendChatMessage(
   message: string,
   context?: { districtId?: string | null; tickerId?: string | null }
 ): Promise<ChatResponse> {
-  const res = await fetch(`${API_URL}/api/chat`, {
+  const res = await fetch(`${API_URL}/api/world/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, context }),
@@ -129,4 +129,32 @@ export type NeonStreamEvent = {
   tickers: Record<string, NeonTickerData>;
   news: NewsItem[];
   tick: number;
+  district_states?: Record<string, DistrictLiveState>;
+  signals?: LiveSignals;
+};
+
+export type DistrictLiveState = {
+  weather: "clear" | "rain" | "storm" | "fog";
+  traffic: "low" | "normal" | "heavy" | "gridlock";
+  mood: "calm" | "tense" | "euphoric" | "panic";
+  glow_intensity: number;
+};
+
+export type CorrelationPair = {
+  a: string;
+  b: string;
+  r: number;
+};
+
+export type LiveSignals = {
+  correlations: {
+    top_positive: CorrelationPair[];
+    top_negative: CorrelationPair[];
+  };
+  sector_strength: Record<string, { strength: number; rank: number; trend: string }>;
+  breadth: { advancers: number; decliners: number; signal: string };
+  regimes: {
+    tickers: Record<string, string>;
+    districts: Record<string, string>;
+  };
 };
