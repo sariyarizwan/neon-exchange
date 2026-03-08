@@ -44,20 +44,33 @@ No test runner, linter, or formatter is currently configured.
 - `/login` — Mock auth login
 - `/signup` — Mock auth signup
 
-**Page Layout** (5-panel shell in `page.tsx`):
-- `TopHeader` — User chip, logout
-- `SidebarLeft` — District list, ticker search, filter toggles
+**Page Layout** (floating panels in `page.tsx`):
+- `FloatingControls` — Top-left: districts panel, settings, ticker search, avatar picker
 - `CenterStage` — Wraps `CityCanvas` (the HTML canvas world renderer)
-- `RightPanel` — Tabbed intel view (scenarios, alliances, evidence)
-- `BottomDock` — Voice UI placeholder (push-to-talk, transcript, persona selector)
+- `FloatingDistrictIndicators` — Floating district name indicators
+- `RightPanel` — Resizable tabbed intel view (scenarios, alliances, evidence)
+- `DistrictPopup` — Candlestick chart + stats popup for selected district
+- `FloatingChat` — AI-powered market intel chat panel (bottom-right)
+- `FloatingMinimap` — Minimap + legend + zoom controls (bottom-right)
 
 **City Renderer** (`frontend/src/components/city/`):
-- `CityCanvas.tsx` — Large (~1600 line) canvas component that renders the entire 8000x5000 pixel world: districts, NPCs, props, weather effects, newsstands, player avatar
-- `useCameraControls.ts` — WASD/arrow key movement + drag-to-pan + smooth camera interpolation
+- `CityCanvas.tsx` — Large canvas component that renders the entire 8000x5000 pixel world: districts (with name labels), NPCs, props, weather effects, vault-style newsstands with vendor NPCs, player avatar. Has off-screen zone culling.
+- `useCameraControls.ts` — WASD/arrow key movement + drag-to-pan + smooth camera interpolation. No scroll zoom (button-only). No collision (walk-through mode).
 - `useHitTesting.ts` — Screen-to-world coordinate conversion and district polygon hit testing
 
+**Reusable UI** (`frontend/src/components/ui/`):
+- `ResizablePanel.tsx` — Drag-to-resize panel with 8 handles (edges + corners), localStorage persistence, min/max constraints
+- `CandlestickChart.tsx` — Canvas-based OHLC candlestick chart (green up, magenta down)
+
+**Hooks** (`frontend/src/hooks/`):
+- `useMarketData.ts` — Polls `/api/market/snapshot`, accumulates synthetic OHLC candles from price snapshots
+- `useChat.ts` — Chat state management, sends to `/api/chat` with district/ticker context, offline fallback
+
 **State** (`frontend/src/store/useNeonStore.ts`):
-Single Zustand store managing: selected ticker/district, camera position, player position/avatar, right panel tab, dock state (mic, transcript, persona), plugin mode, newsstand overlays, storm mode, evidence timeline, scene pulses.
+Single Zustand store managing: selected ticker/district, camera position, player position/avatar, right panel tab, dock state (mic, transcript, persona), plugin mode, newsstand overlays, storm mode, evidence timeline, scene pulses, district popup state.
+
+**API Client** (`frontend/src/lib/api.ts`):
+Functions for market state, news, bootstrap, analysis, SSE stream, voice WebSocket, market snapshots, ticker history, and chat.
 
 **Mock Data** (`frontend/src/mock/`):
 - `districts.ts` — 8 districts with polygon boundaries, sector mappings, regime states
@@ -92,3 +105,7 @@ Tailwind extended with cyberpunk tokens:
 - District polygons define irregular boundaries used for hit testing and rendering
 - Each ticker NPC has a fixed world position, district assignment, archetype, mood, and alliance graph
 - Keyboard shortcuts: `/` focuses ticker search, `Escape` clears selection, `Space` toggles mic
+- Zoom is button-only (no scroll wheel). Player has no collision (walk-through mode).
+- District labels appear on canvas at zoom >= 0.6
+- Newsstands are vault-style 70x50 stalls with vendor NPCs
+- Chat input and ResizablePanel handles use `data-ignore-camera-keys="true"` to prevent WASD interference
