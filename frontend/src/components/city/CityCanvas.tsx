@@ -692,19 +692,20 @@ export function CityCanvas() {
         return;
       }
 
-      const nearbyNewsstand = newsstands.find((stand) => Math.hypot(player.x - stand.x, player.y - stand.y) < 104) ?? null;
-      if (nearbyNewsstand) {
-        setActiveNewsstandDistrictId(nearbyNewsstand.districtId);
-        setSelectedDistrictId(nearbyNewsstand.districtId);
-        setWorldNewsBubble({
-          id: `newsstand-${nearbyNewsstand.districtId}`,
-          kind: "newsstand",
-          anchorX: nearbyNewsstand.x + 18,
-          anchorY: nearbyNewsstand.y - 76,
-          title: `${districtsById[nearbyNewsstand.districtId].name} Newsstand`,
-          lines: districtNewsBoards[nearbyNewsstand.districtId]?.lines.slice(0, 5) ?? []
-        });
-      }
+      // Newsstand Space-key interaction disabled
+      // const nearbyNewsstand = newsstands.find((stand) => Math.hypot(player.x - stand.x, player.y - stand.y) < 104) ?? null;
+      // if (nearbyNewsstand) {
+      //   setActiveNewsstandDistrictId(nearbyNewsstand.districtId);
+      //   setSelectedDistrictId(nearbyNewsstand.districtId);
+      //   setWorldNewsBubble({
+      //     id: `newsstand-${nearbyNewsstand.districtId}`,
+      //     kind: "newsstand",
+      //     anchorX: nearbyNewsstand.x + 18,
+      //     anchorY: nearbyNewsstand.y - 76,
+      //     title: `${districtsById[nearbyNewsstand.districtId].name} Newsstand`,
+      //     lines: districtNewsBoards[nearbyNewsstand.districtId]?.lines.slice(0, 5) ?? []
+      //   });
+      // }
     };
 
     window.addEventListener("keydown", handleInteract);
@@ -1357,15 +1358,16 @@ export function CityCanvas() {
       //     drawStructure(structure, currentCamera.x, currentCamera.y, time);
       //   });
 
-      cityProps.forEach((prop) => {
-        if (prop.lightRadius) {
-          const screenX = prop.x - currentCamera.x + prop.width / 2;
-          const screenY = prop.y - currentCamera.y - (prop.type === "street-lamp" ? 28 : 8);
-          if (screenX > -160 && screenX < width + 160 && screenY > -160 && screenY < height + 160) {
-            drawLightPool(ctx, screenX, screenY, prop.lightRadius, prop.accent, prop.type === "street-lamp" ? 0.14 : 0.12);
-          }
-        }
-      });
+      // cityProps light pools disabled
+      // cityProps.forEach((prop) => {
+      //   if (prop.lightRadius) {
+      //     const screenX = prop.x - currentCamera.x + prop.width / 2;
+      //     const screenY = prop.y - currentCamera.y - (prop.type === "street-lamp" ? 28 : 8);
+      //     if (screenX > -160 && screenX < width + 160 && screenY > -160 && screenY < height + 160) {
+      //       drawLightPool(ctx, screenX, screenY, prop.lightRadius, prop.accent, prop.type === "street-lamp" ? 0.14 : 0.12);
+      //     }
+      //   }
+      // });
 
       for (let droneIndex = 0; droneIndex < 3; droneIndex += 1) {
         const droneX = ((time * (0.11 + droneIndex * 0.03) + droneIndex * 420) % (width + 180)) - 90;
@@ -1440,50 +1442,52 @@ export function CityCanvas() {
         }
       });
 
-      const visibleProps = cityProps.filter((prop) => {
-        const screenX = prop.x - currentCamera.x;
-        const screenY = prop.y - currentCamera.y;
-        return screenX > -120 && screenX < width + 120 && screenY > -120 && screenY < height + 120;
-      });
+      // Props rendering disabled
+      // const visibleProps = cityProps.filter((prop) => {
+      //   const screenX = prop.x - currentCamera.x;
+      //   const screenY = prop.y - currentCamera.y;
+      //   return screenX > -120 && screenX < width + 120 && screenY > -120 && screenY < height + 120;
+      // });
+      //
+      // visibleProps.sort((left, right) => left.y - right.y);
+      //
+      // visibleProps.forEach((prop) => {
+      //   const showLabel =
+      //     (hoverEntityRef.current?.kind === "prop" && hoverEntityRef.current.prop.id === prop.id) ||
+      //     selectedMarker?.id === prop.id ||
+      //     Math.hypot(state.player.x - prop.x, state.player.y - prop.y) < 96;
+      //   drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id], showLabel);
+      //   if (prop.type === "newsstand") {
+      //     const vendorX = prop.x + 50 - currentCamera.x;
+      //     const vendorY = prop.y - currentCamera.y;
+      //     const bob = Math.sin(time / 300) * 0.8;
+      //     drawCharacter(ctx, vendorX, vendorY, "#2C213E", "#F8E8FF", "#0A0C12", prop.accent, "left", 0, bob);
+      //   }
+      //   if (selectedMarker?.kind !== "ticker" && selectedMarker?.id === prop.id) {
+      //     const markerX = prop.x - currentCamera.x + prop.width / 2;
+      //     const markerY = prop.y - currentCamera.y + 6;
+      //     drawLightPool(ctx, markerX, markerY, 34, selectedMarker.color, 0.16);
+      //     drawRing(ctx, markerX, markerY, selectedMarker.color, 1.4);
+      //     drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
+      //     drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
+      //     ctx.fillStyle = "#F6FBFF";
+      //     ctx.font = "bold 9px monospace";
+      //     ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
+      //   }
+      // });
 
-      visibleProps.sort((left, right) => left.y - right.y);
-
-      visibleProps.forEach((prop) => {
-        const showLabel =
-          (hoverEntityRef.current?.kind === "prop" && hoverEntityRef.current.prop.id === prop.id) ||
-          selectedMarker?.id === prop.id ||
-          Math.hypot(state.player.x - prop.x, state.player.y - prop.y) < 96;
-        drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id], showLabel);
-        if (prop.type === "newsstand") {
-          const vendorX = prop.x + 50 - currentCamera.x;
-          const vendorY = prop.y - currentCamera.y;
-          const bob = Math.sin(time / 300) * 0.8;
-          drawCharacter(ctx, vendorX, vendorY, "#2C213E", "#F8E8FF", "#0A0C12", prop.accent, "left", 0, bob);
-        }
-        if (selectedMarker?.kind !== "ticker" && selectedMarker?.id === prop.id) {
-          const markerX = prop.x - currentCamera.x + prop.width / 2;
-          const markerY = prop.y - currentCamera.y + 6;
-          drawLightPool(ctx, markerX, markerY, 34, selectedMarker.color, 0.16);
-          drawRing(ctx, markerX, markerY, selectedMarker.color, 1.4);
-          drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
-          drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
-          ctx.fillStyle = "#F6FBFF";
-          ctx.font = "bold 9px monospace";
-          ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
-        }
-      });
-
-      if (selectedMarker && selectedMarker.kind === "newsstand") {
-        const markerX = selectedMarker.x - currentCamera.x;
-        const markerY = selectedMarker.y - currentCamera.y + 6;
-        drawLightPool(ctx, markerX, markerY, 36, selectedMarker.color, 0.18);
-        drawRing(ctx, markerX, markerY, selectedMarker.color, 1.6);
-        drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
-        drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
-        ctx.fillStyle = "#F6FBFF";
-        ctx.font = "bold 9px monospace";
-        ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
-      }
+      // Newsstand selected marker disabled
+      // if (selectedMarker && selectedMarker.kind === "newsstand") {
+      //   const markerX = selectedMarker.x - currentCamera.x;
+      //   const markerY = selectedMarker.y - currentCamera.y + 6;
+      //   drawLightPool(ctx, markerX, markerY, 36, selectedMarker.color, 0.18);
+      //   drawRing(ctx, markerX, markerY, selectedMarker.color, 1.6);
+      //   drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
+      //   drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
+      //   ctx.fillStyle = "#F6FBFF";
+      //   ctx.font = "bold 9px monospace";
+      //   ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
+      // }
 
       npcRuntimeRef.current.forEach((npc) => {
         const x = npc.x - currentCamera.x;
@@ -1724,11 +1728,12 @@ export function CityCanvas() {
   const getStockRuntimeAt = (worldX: number, worldY: number) =>
     npcRuntimeRef.current.find((npc) => npc.type === "stock" && Math.hypot(worldX - npc.x, worldY - npc.y) <= 18) ?? null;
 
-  const getNewsstandAt = (worldX: number, worldY: number) =>
-    newsstands.find((stand) => Math.abs(worldX - (stand.x + 16)) <= 24 && Math.abs(worldY - (stand.y - 6)) <= 22) ?? null;
+  // Newsstand and prop hit testing disabled
+  // const getNewsstandAt = (worldX: number, worldY: number) =>
+  //   newsstands.find((stand) => Math.abs(worldX - (stand.x + 16)) <= 24 && Math.abs(worldY - (stand.y - 6)) <= 22) ?? null;
 
-  const getPropAt = (worldX: number, worldY: number) =>
-    [...cityProps].reverse().find((prop) => worldX >= prop.x && worldX <= prop.x + prop.width && worldY >= prop.y - prop.height && worldY <= prop.y + 8) ?? null;
+  // const getPropAt = (worldX: number, worldY: number) =>
+  //   [...cityProps].reverse().find((prop) => worldX >= prop.x && worldX <= prop.x + prop.width && worldY >= prop.y - prop.height && worldY <= prop.y + 8) ?? null;
 
   const handleHover = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1742,19 +1747,20 @@ export function CityCanvas() {
       return;
     }
 
-    const newsstand = getNewsstandAt(world.x, world.y);
-    if (newsstand) {
-      const district = districtsById[newsstand.districtId];
-      setHoverEntity({ kind: "newsstand", stand: newsstand, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
-      return;
-    }
+    // Newsstand and prop hover detection disabled
+    // const newsstand = getNewsstandAt(world.x, world.y);
+    // if (newsstand) {
+    //   const district = districtsById[newsstand.districtId];
+    //   setHoverEntity({ kind: "newsstand", stand: newsstand, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
+    //   return;
+    // }
 
-    const prop = getPropAt(world.x, world.y);
-    if (prop) {
-      const district = districtsById[prop.districtId];
-      setHoverEntity({ kind: "prop", prop, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
-      return;
-    }
+    // const prop = getPropAt(world.x, world.y);
+    // if (prop) {
+    //   const district = districtsById[prop.districtId];
+    //   setHoverEntity({ kind: "prop", prop, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
+    //   return;
+    // }
 
     setHoverEntity(null);
   };
@@ -1855,93 +1861,94 @@ export function CityCanvas() {
       return;
     }
 
-    const newsstand = getNewsstandAt(world.x, world.y);
-    if (newsstand) {
-      setActiveNewsstandDistrictId(newsstand.districtId);
-      setSelectedDistrictId(newsstand.districtId);
-      setSelectedMarker({
-        id: newsstand.id,
-        kind: "newsstand",
-        x: newsstand.x + 18,
-        y: newsstand.y,
-        label: "Newsstand",
-        color: districtsById[newsstand.districtId].accent
-      });
-      showBubble(newsstand.id, "Newsstand open", newsstand.x, newsstand.y - 34);
-      openNewsstandBubble(newsstand);
-      return;
-    }
+    // Newsstand and prop click interaction disabled
+    // const newsstand = getNewsstandAt(world.x, world.y);
+    // if (newsstand) {
+    //   setActiveNewsstandDistrictId(newsstand.districtId);
+    //   setSelectedDistrictId(newsstand.districtId);
+    //   setSelectedMarker({
+    //     id: newsstand.id,
+    //     kind: "newsstand",
+    //     x: newsstand.x + 18,
+    //     y: newsstand.y,
+    //     label: "Newsstand",
+    //     color: districtsById[newsstand.districtId].accent
+    //   });
+    //   showBubble(newsstand.id, "Newsstand open", newsstand.x, newsstand.y - 34);
+    //   openNewsstandBubble(newsstand);
+    //   return;
+    // }
 
-    const prop = getPropAt(world.x, world.y);
-    if (prop && prop.interactive) {
-      setSelectedMarker({
-        id: prop.id,
-        kind: "prop",
-        x: prop.x + prop.width / 2,
-        y: prop.y,
-        label: prop.label,
-        color: prop.accent
-      });
-      if (prop.landmarkTitle) {
-        triggerPropEffect(prop.id, "landmark", 1200);
-        setWorldNewsBubble({
-          id: `prop-${prop.id}`,
-          kind: "prop",
-          anchorX: prop.x + prop.width / 2,
-          anchorY: prop.y - prop.height - 14,
-          title: prop.landmarkTitle,
-          lines: [
-            { id: `${prop.id}-line-1`, text: prop.landmarkText ?? "A district landmark pulses with mock lore and future event hooks." },
-            { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} landmark. Follow the nearby streets and alleys for more activity.` }
-          ]
-        });
-        showBubble(prop.id, prop.label, prop.x, prop.y - prop.height - 14);
-        return;
-      }
-
-      switch (prop.behavior) {
-        case "vending":
-          triggerPropEffect(prop.id, "vending", 1100);
-          showBubble(prop.id, "Dispensing...", prop.x, prop.y - prop.height - 10);
-          break;
-        case "terminal":
-          triggerPropEffect(prop.id, "terminal", 1000);
-          setWorldNewsBubble({
-            id: `prop-${prop.id}`,
-            kind: "prop",
-            anchorX: prop.x + prop.width / 2,
-            anchorY: prop.y - prop.height - 12,
-            title: "Data Node",
-            lines: [
-              { id: `${prop.id}-line-1`, text: "Mock terminal uplink. Future agent feeds, market notes, and plugin outputs can render here." },
-              { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} node is waiting for a live city event stream.` }
-            ]
-          });
-          break;
-        case "billboard":
-          billboardFramesRef.current[prop.id] = (billboardFramesRef.current[prop.id] ?? 0) + 1;
-          showBubble(prop.id, "Ad cycle", prop.x, prop.y - prop.height - 10);
-          break;
-        case "lamp":
-          triggerPropEffect(prop.id, "lamp", 900);
-          showBubble(prop.id, "Lamp surge", prop.x, prop.y - prop.height - 10);
-          break;
-        case "crate":
-          triggerPropEffect(prop.id, "crate", 700);
-          showBubble(prop.id, "Static crackle", prop.x, prop.y - prop.height - 10);
-          break;
-        case "newsstand":
-          setActiveNewsstandDistrictId(prop.districtId);
-          {
-            const stand = newsstands.find((entry) => entry.districtId === prop.districtId);
-            if (stand) {
-              openNewsstandBubble(stand);
-            }
-          }
-          break;
-      }
-      return;
-    }
+    // const prop = getPropAt(world.x, world.y);
+    // if (prop && prop.interactive) {
+    //   setSelectedMarker({
+    //     id: prop.id,
+    //     kind: "prop",
+    //     x: prop.x + prop.width / 2,
+    //     y: prop.y,
+    //     label: prop.label,
+    //     color: prop.accent
+    //   });
+    //   if (prop.landmarkTitle) {
+    //     triggerPropEffect(prop.id, "landmark", 1200);
+    //     setWorldNewsBubble({
+    //       id: `prop-${prop.id}`,
+    //       kind: "prop",
+    //       anchorX: prop.x + prop.width / 2,
+    //       anchorY: prop.y - prop.height - 14,
+    //       title: prop.landmarkTitle,
+    //       lines: [
+    //         { id: `${prop.id}-line-1`, text: prop.landmarkText ?? "A district landmark pulses with mock lore and future event hooks." },
+    //         { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} landmark. Follow the nearby streets and alleys for more activity.` }
+    //       ]
+    //     });
+    //     showBubble(prop.id, prop.label, prop.x, prop.y - prop.height - 14);
+    //     return;
+    //   }
+    //
+    //   switch (prop.behavior) {
+    //     case "vending":
+    //       triggerPropEffect(prop.id, "vending", 1100);
+    //       showBubble(prop.id, "Dispensing...", prop.x, prop.y - prop.height - 10);
+    //       break;
+    //     case "terminal":
+    //       triggerPropEffect(prop.id, "terminal", 1000);
+    //       setWorldNewsBubble({
+    //         id: `prop-${prop.id}`,
+    //         kind: "prop",
+    //         anchorX: prop.x + prop.width / 2,
+    //         anchorY: prop.y - prop.height - 12,
+    //         title: "Data Node",
+    //         lines: [
+    //           { id: `${prop.id}-line-1`, text: "Mock terminal uplink. Future agent feeds, market notes, and plugin outputs can render here." },
+    //           { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} node is waiting for a live city event stream.` }
+    //         ]
+    //       });
+    //       break;
+    //     case "billboard":
+    //       billboardFramesRef.current[prop.id] = (billboardFramesRef.current[prop.id] ?? 0) + 1;
+    //       showBubble(prop.id, "Ad cycle", prop.x, prop.y - prop.height - 10);
+    //       break;
+    //     case "lamp":
+    //       triggerPropEffect(prop.id, "lamp", 900);
+    //       showBubble(prop.id, "Lamp surge", prop.x, prop.y - prop.height - 10);
+    //       break;
+    //     case "crate":
+    //       triggerPropEffect(prop.id, "crate", 700);
+    //       showBubble(prop.id, "Static crackle", prop.x, prop.y - prop.height - 10);
+    //       break;
+    //     case "newsstand":
+    //       setActiveNewsstandDistrictId(prop.districtId);
+    //       {
+    //         const stand = newsstands.find((entry) => entry.districtId === prop.districtId);
+    //         if (stand) {
+    //           openNewsstandBubble(stand);
+    //         }
+    //       }
+    //       break;
+    //   }
+    //   return;
+    // }
 
     const district = hitTestDistrict(world.x, world.y, districts);
     if (district) {
