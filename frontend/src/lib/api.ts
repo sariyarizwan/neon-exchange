@@ -76,6 +76,73 @@ export async function sendChatMessage(
   return res.json();
 }
 
+export async function fetchEvidence(): Promise<{ evidence: EvidenceItem[] }> {
+  const res = await fetch(`${API_URL}/api/world/evidence-feed`);
+  if (!res.ok) throw new Error(`Evidence fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchScenarios(): Promise<{ scenarios: ScenarioItem[] }> {
+  const res = await fetch(`${API_URL}/api/world/scenarios`);
+  if (!res.ok) throw new Error(`Scenarios fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export function createChatStream(
+  message: string,
+  context?: { districtId?: string | null; tickerId?: string | null },
+  onToken?: (text: string) => void,
+  onDone?: () => void,
+  onError?: (error: string) => void
+): () => void {
+  const controller = new AbortController();
+
+  fetch(`${API_URL}/api/world/chat/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, context }),
+    signal: controller.signal,
+  })
+    .then(async (res) => {
+      if (!res.ok || !res.body) {
+        onError?.(`Stream failed: ${res.status}`);
+        return;
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.text) onToken?.(data.text);
+              if (data.done) onDone?.();
+              if (data.error) onError?.(data.error);
+            } catch {
+              // ignore parse errors
+            }
+          }
+        }
+      }
+      onDone?.();
+    })
+    .catch((err) => {
+      if (err.name !== "AbortError") {
+        onError?.(err.message);
+      }
+    });
+
+  return () => controller.abort();
+}
+
 // --- Types ---
 
 export type OHLCCandle = {
@@ -157,4 +224,23 @@ export type LiveSignals = {
     tickers: Record<string, string>;
     districts: Record<string, string>;
   };
+};
+
+export type EvidenceItem = {
+  id: string;
+  timestamp: string;
+  text: string;
+  districtId?: string;
+  tickerId?: string;
+};
+
+export type ScenarioItem = {
+  id: string;
+  title: string;
+  type: string;
+  probability: number;
+  description: string;
+  affected_tickers: string[];
+  affected_districts: string[];
+  severity: string;
 };

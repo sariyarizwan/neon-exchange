@@ -8,6 +8,7 @@ import { WORLD_HEIGHT, WORLD_WIDTH } from "@/lib/world";
 import { cn } from "@/lib/cn";
 import { useNeonStore } from "@/store/useNeonStore";
 import { FloatingChatPanel } from "./FloatingChat";
+import { VoicePanel } from "./VoicePanel";
 
 export function FloatingMinimap() {
   const [legendOpen, setLegendOpen] = useState(false);
@@ -106,6 +107,9 @@ export function FloatingMinimap() {
 
       {/* Buttons column + minimap */}
       <div className="flex flex-col items-end gap-2">
+        {/* Voice panel */}
+        <VoicePanel />
+
         {/* Chat panel floats above buttons when open */}
         <FloatingChatPanel open={chatOpen} onToggle={() => setChatOpen(!chatOpen)} />
 

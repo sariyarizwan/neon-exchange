@@ -692,20 +692,14 @@ export function CityCanvas() {
         return;
       }
 
-      // Newsstand Space-key interaction disabled
-      // const nearbyNewsstand = newsstands.find((stand) => Math.hypot(player.x - stand.x, player.y - stand.y) < 104) ?? null;
-      // if (nearbyNewsstand) {
-      //   setActiveNewsstandDistrictId(nearbyNewsstand.districtId);
-      //   setSelectedDistrictId(nearbyNewsstand.districtId);
-      //   setWorldNewsBubble({
-      //     id: `newsstand-${nearbyNewsstand.districtId}`,
-      //     kind: "newsstand",
-      //     anchorX: nearbyNewsstand.x + 18,
-      //     anchorY: nearbyNewsstand.y - 76,
-      //     title: `${districtsById[nearbyNewsstand.districtId].name} Newsstand`,
-      //     lines: districtNewsBoards[nearbyNewsstand.districtId]?.lines.slice(0, 5) ?? []
-      //   });
-      // }
+      // Newsstand E-key interaction (live news via overlay)
+      const nearbyNewsstand = newsstands.find(
+        (stand) => Math.hypot(player.x - stand.x, player.y - stand.y) < 104
+      ) ?? null;
+      if (nearbyNewsstand) {
+        setActiveNewsstandDistrictId(nearbyNewsstand.districtId);
+        setSelectedDistrictId(nearbyNewsstand.districtId);
+      }
     };
 
     window.addEventListener("keydown", handleInteract);
@@ -1298,7 +1292,10 @@ export function CityCanvas() {
 
         const selected = district.id === useNeonStore.getState().selectedDistrictId;
         const pulsing = district.id === useNeonStore.getState().scenePulse.districtId;
-        const intensity = pulsing ? 0.62 : selected ? 0.34 : 0.16;
+        // Use live glow_intensity from backend when available
+        const liveGlow = ds?.[district.id]?.glow_intensity ?? 0.5;
+        const baseIntensity = 0.1 + liveGlow * 0.2; // 0.1-0.3 from live data
+        const intensity = pulsing ? 0.62 : selected ? 0.34 : baseIntensity;
 
         const img = districtImages[zone.districtId];
         if (img && districtImagesLoaded[zone.districtId]) {
@@ -1659,7 +1656,11 @@ export function CityCanvas() {
 
       ctx.save();
       ctx.lineCap = "round";
-      const rainCount = stormFactor > 0 ? 120 : 48;
+      // Scale rain density by live weather data
+      const weatherStorms = ds ? Object.values(ds).filter((d) => d.weather === "storm").length : 0;
+      const weatherRain = ds ? Object.values(ds).filter((d) => d.weather === "rain").length : 0;
+      const weatherBoost = weatherStorms * 20 + weatherRain * 8;
+      const rainCount = stormFactor > 0 ? 120 + weatherBoost : 48 + weatherBoost;
       for (let index = 0; index < rainCount; index += 1) {
         const drop = rainDropsRef.current[index];
         const rainX = (drop.xSeed + time * drop.speed * (stormFactor > 0 ? 1.6 : 1)) % (width + 120) - 60;

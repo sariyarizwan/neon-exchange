@@ -12,8 +12,12 @@ import { LegendOverlay } from "@/components/layout/LegendOverlay";
 import { QuestLog } from "@/components/layout/QuestLog";
 import { QuestToasts } from "@/components/layout/QuestToasts";
 import { RightPanel } from "@/components/layout/RightPanel";
+import { TickerTape } from "@/components/layout/TickerTape";
+import { BreakingNewsAlert } from "@/components/layout/BreakingNewsAlert";
+import { NewsstandOverlay } from "@/components/layout/NewsstandOverlay";
 import { LiveDataProvider } from "@/components/LiveDataProvider";
 import { useMicroLegend } from "@/hooks/useMicroLegend";
+import { useEvidence } from "@/hooks/useEvidence";
 import { useQuestTriggers } from "@/hooks/useQuestTriggers";
 import { cn } from "@/lib/cn";
 import { readStoredAuth } from "@/lib/mockAuth";
@@ -127,6 +131,9 @@ export default function HomePage() {
         <QuestLog />
         <LegendOverlay />
         <FloatingMinimap />
+        <TickerTape />
+        <BreakingNewsAlert />
+        <NewsstandOverlay />
       </div>
     </main>
     </LiveDataProvider>
@@ -137,5 +144,6 @@ export default function HomePage() {
 function QuestTriggerWatcher() {
   useQuestTriggers();
   useMicroLegend();
+  useEvidence();
   return null;
 }

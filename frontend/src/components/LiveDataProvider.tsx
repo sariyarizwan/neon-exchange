@@ -1,8 +1,10 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { useLiveMarket } from "@/hooks/useLiveMarket";
 import { useLiveNews } from "@/hooks/useLiveNews";
+import { fetchBootstrap } from "@/lib/api";
+import { useNeonStore } from "@/store/useNeonStore";
 import type { DistrictLiveState, LiveSignals, NeonTickerData, NewsItem } from "@/lib/api";
 
 type LiveDataContextType = {
@@ -44,6 +46,44 @@ export function useLiveData() {
 export function LiveDataProvider({ children }: { children: ReactNode }) {
   const market = useLiveMarket();
   const newsData = useLiveNews();
+  const bootstrappedRef = useRef(false);
+
+  // Bootstrap: seed initial scenarios from the agent system
+  useEffect(() => {
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
+
+    fetchBootstrap()
+      .then((data) => {
+        const store = useNeonStore.getState();
+        if (data.scenarios && Array.isArray(data.scenarios)) {
+          for (const scenario of data.scenarios.slice(0, 5)) {
+            const text = scenario.title ?? scenario.description ?? "";
+            if (text) {
+              store.addEvidence({
+                text: `[scenario] ${text}`.slice(0, 200),
+                districtId: scenario.affected_districts?.[0] ?? undefined,
+                tickerId: scenario.affected_tickers?.[0] ?? undefined,
+              });
+            }
+          }
+        }
+      })
+      .catch(() => {
+        // Backend not available
+      });
+  }, []);
+
+  // Auto-trigger district storm pulses from live weather data
+  useEffect(() => {
+    if (!market.districtStates) return;
+    const store = useNeonStore.getState();
+    for (const [districtId, state] of Object.entries(market.districtStates)) {
+      if (state.weather === "storm") {
+        store.triggerDistrictPulse(districtId, "scene", 8000);
+      }
+    }
+  }, [market.districtStates]);
 
   const value: LiveDataContextType = {
     tickers: market.tickers,
