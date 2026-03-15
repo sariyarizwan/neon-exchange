@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import logging
 import time
 
@@ -165,6 +166,80 @@ async def chat(request: Request):
     except Exception as e:
         logger.warning(f"Chat endpoint error: {e}")
         return {"reply": f"Market intel offline. {str(e)[:100]}", "context": context}
+
+
+@router.post("/chat/stream")
+async def chat_stream(request: Request):
+    """Streaming AI market intel chat powered by Gemini via SSE."""
+    body = await request.json()
+    message = body.get("message", "")
+    context = body.get("context", {})
+
+    # Build market context from cache (same as /chat)
+    snap = snapshot_cache.snapshot
+    mood = snap.neon_state.get("marketMood", "unknown")
+    district_id = context.get("districtId", "")
+    ticker_id = context.get("tickerId", "")
+
+    market_ctx = f"Market mood: {mood}."
+    # Add district context if available
+    for ds in snap.district_states:
+        if ds.get("district_id") == district_id:
+            market_ctx += (
+                f" District {ds['name']}: weather={ds.get('weather','?')}, "
+                f"traffic={ds.get('traffic','?')}, mood={ds.get('mood','?')}."
+            )
+            break
+    # Add ticker context if available
+    if ticker_id and ticker_id in snap.neon_tickers:
+        t = snap.neon_tickers[ticker_id]
+        market_ctx += (
+            f" Ticker {t.get('neonSymbol','?')}: price=${t.get('price',0):.2f}, "
+            f"change={t.get('changePct',0):+.2f}%, mood={t.get('mood','?')}, "
+            f"regime={t.get('regime','?')}."
+        )
+    # Add top headlines
+    if snap.news_feed:
+        headlines = [n.get("headline", "") for n in snap.news_feed[:3] if n.get("headline")]
+        if headlines:
+            market_ctx += " Headlines: " + "; ".join(headlines)
+
+    async def event_generator():
+        try:
+            from google import genai
+            import os
+
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+            response = client.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                contents=(
+                    "You are NEON, an AI market intelligence analyst in a cyberpunk stock city. "
+                    "Give concise, actionable market insights. Use the city metaphor "
+                    "(districts, weather=volatility, traffic=liquidity, storms=crashes). "
+                    "Use markdown formatting for structure. "
+                    f"Current context: {market_ctx}\n\nUser: {message}"
+                ),
+            )
+            for chunk in response:
+                if await request.is_disconnected():
+                    break
+                if chunk.text:
+                    yield {
+                        "event": "token",
+                        "data": json.dumps({"text": chunk.text}),
+                    }
+            yield {
+                "event": "done",
+                "data": json.dumps({"done": True}),
+            }
+        except Exception as e:
+            logger.warning(f"Chat stream error: {e}")
+            yield {
+                "event": "error",
+                "data": json.dumps({"error": str(e)[:200]}),
+            }
+
+    return EventSourceResponse(event_generator())
 
 
 @router.get("/evidence-feed")
