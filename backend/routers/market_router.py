@@ -1,6 +1,7 @@
 import time
+from typing import Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 import logging
 
 from services.cache import snapshot_cache
@@ -41,6 +42,53 @@ async def get_neon_state():
     so the frontend can look up live prices by its own ticker IDs (nvx, qntm, etc.).
     """
     return snapshot_cache.snapshot.neon_state
+
+
+@router.get("/snapshot")
+async def get_market_snapshot(district: Optional[str] = Query(None)):
+    """Return market snapshot, optionally filtered by district."""
+    neon_state = snapshot_cache.snapshot.neon_state
+    if district is None:
+        return neon_state
+
+    all_tickers = neon_state.get("tickers", {})
+    filtered_tickers = {
+        tid: tdata
+        for tid, tdata in all_tickers.items()
+        if tdata.get("districtId") == district
+    }
+    return {
+        "tickers": filtered_tickers,
+        "marketMood": neon_state.get("marketMood"),
+        "isLive": neon_state.get("isLive"),
+    }
+
+
+@router.get("/history/{ticker_id}")
+async def get_ticker_history(ticker_id: str):
+    """Return OHLC candle history for a ticker (by neon_id or symbol)."""
+    lookup = snapshot_cache.snapshot.ticker_lookup
+    entry = lookup.get(ticker_id.lower()) or lookup.get(ticker_id.upper())
+    if entry is None:
+        return []
+
+    history = entry.get("history")
+    if not history:
+        real_symbol = entry.get("symbol", ticker_id)
+        history = market_data_service.get_price_history(real_symbol, 50)
+
+    candles = [
+        {
+            "open": point["price"],
+            "high": point["price"] * 1.001,
+            "low": point["price"] * 0.999,
+            "close": point["price"],
+            "timestamp": point.get("timestamp", point.get("ts")),
+        }
+        for point in history
+        if "price" in point
+    ]
+    return candles
 
 
 @router.post("/tick")
