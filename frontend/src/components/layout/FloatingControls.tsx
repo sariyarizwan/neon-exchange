@@ -37,15 +37,12 @@ export function FloatingControls({ user, onReplayTutorial }: FloatingControlsPro
   const [districtPanelOpen, setDistrictPanelOpen] = useState(false);
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [replayMode, setReplayMode] = useState(false);
 
   const selectedDistrictId = useNeonStore((state) => state.selectedDistrictId);
   const selectedTickerId = useNeonStore((state) => state.selectedTickerId);
-  const pluginMode = useNeonStore((state) => state.pluginMode);
   const sound = useNeonStore((state) => state.sound);
   const dock = useNeonStore((state) => state.dock);
   const player = useNeonStore((state) => state.player);
-  const showPoiMarkers = useNeonStore((state) => state.showPoiMarkers);
   const showAlliances = useNeonStore((state) => state.showAlliances);
   const showStorms = useNeonStore((state) => state.showStorms);
   const showRumors = useNeonStore((state) => state.showRumors);
@@ -58,9 +55,7 @@ export function FloatingControls({ user, onReplayTutorial }: FloatingControlsPro
   const setSoundVolume = useNeonStore((state) => state.setSoundVolume);
   const setSoundMode = useNeonStore((state) => state.setSoundMode);
   const setAudioNeedsGesture = useNeonStore((state) => state.setAudioNeedsGesture);
-  const setPluginMode = useNeonStore((state) => state.setPluginMode);
   const setAvatarId = useNeonStore((state) => state.setAvatarId);
-  const setShowPoiMarkers = useNeonStore((state) => state.setShowPoiMarkers);
   const setDistrictPopupId = useNeonStore((state) => state.setDistrictPopupId);
   const setPersona = useNeonStore((state) => state.setPersona);
   const toggleMic = useNeonStore((state) => state.toggleMic);
@@ -295,9 +290,6 @@ export function FloatingControls({ user, onReplayTutorial }: FloatingControlsPro
                 </button>
               </div>
               <div className="space-y-2">
-                <Toggle checked={pluginMode} onChange={setPluginMode} label="Plugin Mode" hint="Opens mock stock page links" />
-                <Toggle checked={showPoiMarkers} onChange={setShowPoiMarkers} label="POI Markers" hint="District discovery icons" />
-                <Toggle checked={replayMode} onChange={setReplayMode} label="Replay Mode" hint="UI only" />
               </div>
               <button
                 type="button"
@@ -390,10 +382,29 @@ export function FloatingControls({ user, onReplayTutorial }: FloatingControlsPro
                   </div>
                   <div className="rounded-xl border border-slate-800 bg-slate-950/72 px-2 py-2">{sound.trackName}</div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <Toggle checked={showAlliances} onChange={(checked) => setFilterToggle("showAlliances", checked)} label="Rails" />
-                  <Toggle checked={showStorms} onChange={(checked) => setFilterToggle("showStorms", checked)} label="Storms" />
-                  <Toggle checked={showRumors} onChange={(checked) => setFilterToggle("showRumors", checked)} label="Rumors" />
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { key: "showAlliances" as const, label: "Rails" },
+                    { key: "showStorms" as const, label: "Storms" },
+                    { key: "showRumors" as const, label: "Rumors" },
+                  ] as const).map(({ key, label }) => {
+                    const active = key === "showAlliances" ? showAlliances : key === "showStorms" ? showStorms : showRumors;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setFilterToggle(key, !active)}
+                        className={cn(
+                          "rounded-full border px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition",
+                          active
+                            ? "border-neon-cyan/40 bg-neon-cyan/12 text-cyan-100 shadow-neon-cyan"
+                            : "border-slate-700 bg-slate-900/70 text-slate-400 hover:border-slate-600"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

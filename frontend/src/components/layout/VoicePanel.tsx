@@ -5,7 +5,7 @@ import { useVoice, type VoiceConnectionState } from "@/hooks/useVoice";
 import { cn } from "@/lib/cn";
 
 const STATE_LABELS: Record<VoiceConnectionState, string> = {
-  disconnected: "Offline",
+  disconnected: "Standby",
   connecting: "Connecting...",
   connected: "Ready",
   speaking: "Listening",
@@ -111,7 +111,10 @@ export function VoicePanel() {
           ref={scrollRef}
           className="max-h-28 space-y-1 overflow-y-auto overscroll-contain"
         >
-          {transcript.slice(0, 10).map((line, i) => (
+          {transcript
+            .filter((line) => !line.includes("Error:") && !line.includes("error:"))
+            .slice(0, 10)
+            .map((line, i) => (
             <div
               key={`${i}-${line.slice(0, 20)}`}
               className={cn(

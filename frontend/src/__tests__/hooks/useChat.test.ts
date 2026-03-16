@@ -155,7 +155,7 @@ describe("useChat", () => {
     expect(assistantMsgs[0].streaming).toBe(false);
   });
 
-  it("sets error message when both stream and fallback fail", async () => {
+  it("uses static demo response when both stream and fallback fail", async () => {
     mockStreamError();
     (api.sendChatMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new Error("Network error")
@@ -164,17 +164,19 @@ describe("useChat", () => {
     const { result } = renderHook(() => useChat());
 
     await act(async () => {
-      await result.current.send("Who is NVX?");
+      await result.current.send("What's moving in Chip Docks?");
     });
 
-    expect(result.current.error).toBe("Market intel offline");
+    // No error set — static response used instead
+    expect(result.current.error).toBeNull();
     const assistantMsgs = result.current.messages.filter(
       (m) => m.role === "assistant" && m.id !== "welcome"
     );
-    expect(assistantMsgs[0].text).toContain("temporarily unavailable");
+    expect(assistantMsgs[0].text).toContain("Chip Docks");
+    expect(assistantMsgs[0].streaming).toBe(false);
   });
 
-  it("clearError() resets error to null", async () => {
+  it("uses default static response for unknown queries when offline", async () => {
     mockStreamError();
     (api.sendChatMessage as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new Error("fail")
@@ -183,10 +185,17 @@ describe("useChat", () => {
     const { result } = renderHook(() => useChat());
 
     await act(async () => {
-      await result.current.send("Query");
+      await result.current.send("Some random question");
     });
 
-    expect(result.current.error).not.toBeNull();
+    const assistantMsgs = result.current.messages.filter(
+      (m) => m.role === "assistant" && m.id !== "welcome"
+    );
+    expect(assistantMsgs[0].text).toContain("cautiously bullish");
+  });
+
+  it("clearError() resets error to null", () => {
+    const { result } = renderHook(() => useChat());
 
     act(() => {
       result.current.clearError();

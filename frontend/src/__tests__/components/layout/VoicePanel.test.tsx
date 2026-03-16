@@ -36,9 +36,9 @@ describe("VoicePanel", () => {
     expect(screen.getByText(/Oracle Voice/)).toBeInTheDocument();
   });
 
-  it("shows Offline status when disconnected", () => {
+  it("shows Standby status when disconnected", () => {
     render(<VoicePanel />);
-    expect(screen.getByText(/Offline/)).toBeInTheDocument();
+    expect(screen.getByText(/Standby/)).toBeInTheDocument();
   });
 
   it("shows Connect button when disconnected", () => {
