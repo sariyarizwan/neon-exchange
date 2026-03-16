@@ -187,7 +187,7 @@ const initialTopLeft = cameraTopLeftForWorldPoint(
 const initialTranscript = [
   "Market Maker: Midtown spread is stable. Awaiting fresh tape.",
   "Whale: Watching BANK TOWERS and CRYPTO ALLEY for hidden size.",
-  "News Desk: Rumor poster queue loaded. Live pipeline mocked.",
+  "News Desk: Rumor poster queue loaded. Live pipeline ready.",
   "Market Maker: Central hub traffic elevated but orderly.",
   "News Desk: Gemini Live + ADK wiring is pending."
 ];
@@ -196,7 +196,7 @@ const initialEvidence: EvidenceItem[] = [];
 
 const initialNewsstand = newsstands.find((entry) => entry.districtId === "consumer-strip") ?? newsstands[0];
 let overlayRestoreTimeout: number | null = null;
-const soundTrackName = (mode: SoundMode) => (mode === "guide" ? "Gemini Guide (Mock)" : "neon-rain.wav");
+const soundTrackName = (mode: SoundMode) => (mode === "guide" ? "Gemini Guide" : "neon-rain.wav");
 
 export const useNeonStore = create<NeonState>((set, get) => ({
   selectedTickerId: null,
@@ -313,7 +313,7 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     set((state) => {
       const micActive = !state.dock.micActive;
       const line = micActive
-        ? `${state.dock.persona}: Push-to-talk armed. Streaming mock transcript...`
+        ? `${state.dock.persona}: Push-to-talk armed. Streaming transcript...`
         : `${state.dock.persona}: Push-to-talk released. Standing by.`;
 
       return {

@@ -378,7 +378,7 @@ export function FloatingControls({ user, onReplayTutorial }: FloatingControlsPro
                 </label>
                 <div className="grid grid-cols-2 gap-2 text-[10px] uppercase tracking-[0.14em] text-slate-400">
                   <div className={cn("rounded-xl border px-2 py-2", liveConnected ? "border-lime-400/30 bg-lime-400/8 text-lime-300" : "border-slate-800 bg-slate-950/72")}>
-                    {liveConnected ? (isLive ? "Live Data" : "Mock Data") : "Offline"}
+                    {liveConnected ? (isLive ? "Live Data" : "Cached") : "Offline"}
                   </div>
                   <div className="rounded-xl border border-slate-800 bg-slate-950/72 px-2 py-2">{sound.trackName}</div>
                 </div>
