@@ -6,6 +6,7 @@ import { districts } from "@/mock/districts";
 import { tickers } from "@/mock/tickers";
 import { cameraTopLeftForWorldPoint, clampCameraPosition, HOME_WORLD_POINT } from "@/lib/world";
 import type { RightPanelTab, AgentPersona, EvidenceItem, FacingDirection, GuideState, PlayerState, SoundMode, SoundState } from "@/types/store";
+import type { ActiveMission, DistrictActivationState, MissionStepState } from "@/types/world";
 
 type ToggleKey = "showAlliances" | "showStorms" | "showRumors";
 
@@ -96,6 +97,15 @@ type NeonState = {
   scenePulse: ScenePulse;
   evidenceTimeline: EvidenceItem[];
   districtPopupId: string | null;
+  // Collectibles & fast travel
+  collectedChips: string[];
+  chipCount: number;
+  // Living city state
+  activeMission: ActiveMission | null;
+  completedMissions: string[];
+  districtActivation: DistrictActivationState | null;
+  activeInteractableId: string | null;
+  citizenDialogueBubble: { citizenId: string; text: string; x: number; y: number; until: number } | null;
   setDistrictPopupId: (id: string | null) => void;
   closeDistrictPopup: () => void;
   setSelectedTickerId: (tickerId: string | null) => void;
@@ -147,6 +157,19 @@ type NeonState = {
   extractPosition: (tickerId: string, price: number, shares: number) => void;
   setDroneState: (state: "calm" | "alert" | "glitch") => void;
   advanceOnboarding: () => void;
+  // Collectibles & fast travel actions
+  collectChip: (chipId: string, insight: string) => void;
+  fastTravel: (targetDistrictId: string) => void;
+  // Living city actions
+  activateDistrict: (districtId: string, effectType: string, duration: number, primaryColor: string, secondaryColor: string) => void;
+  clearDistrictActivation: () => void;
+  startMission: (missionId: string, districtId: string, totalSteps: number) => void;
+  advanceMission: () => void;
+  completeMission: () => void;
+  cancelMission: () => void;
+  setActiveInteractableId: (id: string | null) => void;
+  showCitizenDialogue: (citizenId: string, text: string, x: number, y: number, duration?: number) => void;
+  clearCitizenDialogue: () => void;
 };
 
 const MIN_ZOOM = 0.5;
@@ -245,6 +268,13 @@ export const useNeonStore = create<NeonState>((set, get) => ({
   },
   evidenceTimeline: initialEvidence,
   districtPopupId: null,
+  collectedChips: [],
+  chipCount: 0,
+  activeMission: null,
+  completedMissions: [],
+  districtActivation: null,
+  activeInteractableId: null,
+  citizenDialogueBubble: null,
   setDistrictPopupId: (id) => set(() => ({ districtPopupId: id })),
   closeDistrictPopup: () => set(() => ({ districtPopupId: null })),
   setSelectedTickerId: (tickerId) =>
@@ -638,4 +668,74 @@ export const useNeonStore = create<NeonState>((set, get) => ({
     set((state) => ({
       onboardingStep: Math.min(state.onboardingStep + 1, 4)
     })),
+  collectChip: (chipId, insight) =>
+    set((state) => {
+      if (state.collectedChips.includes(chipId)) return state;
+      return {
+        collectedChips: [...state.collectedChips, chipId],
+        chipCount: state.collectedChips.length + 1,
+      };
+    }),
+  fastTravel: (targetDistrictId) => {
+    const district = districts.find((d) => d.id === targetDistrictId);
+    if (!district) return;
+    set((state) => ({
+      player: { ...state.player, x: district.center.x, y: district.center.y },
+      selectedDistrictId: targetDistrictId,
+    }));
+    useNeonStore.getState().focusDistrict(targetDistrictId);
+  },
+  activateDistrict: (districtId, effectType, duration, primaryColor, secondaryColor) =>
+    set(() => ({
+      districtActivation: {
+        districtId,
+        effectType,
+        startedAt: Date.now(),
+        duration,
+        primaryColor,
+        secondaryColor,
+      },
+    })),
+  clearDistrictActivation: () => set(() => ({ districtActivation: null })),
+  startMission: (missionId, districtId, totalSteps) =>
+    set((state) => {
+      if (state.activeMission) return state;
+      if (state.completedMissions.includes(missionId)) return state;
+      const stepStates: MissionStepState[] = Array.from(
+        { length: totalSteps },
+        (_, i) => (i === 0 ? "active" : "locked")
+      );
+      return {
+        activeMission: { missionId, districtId, currentStep: 0, stepStates },
+      };
+    }),
+  advanceMission: () =>
+    set((state) => {
+      if (!state.activeMission) return state;
+      const { currentStep, stepStates } = state.activeMission;
+      const nextStep = currentStep + 1;
+      if (nextStep >= stepStates.length) return state;
+      const newStates = stepStates.map((s, i) =>
+        i === currentStep ? "completed" as const : i === nextStep ? "active" as const : s
+      );
+      return {
+        activeMission: { ...state.activeMission, currentStep: nextStep, stepStates: newStates },
+      };
+    }),
+  completeMission: () =>
+    set((state) => {
+      if (!state.activeMission) return state;
+      const missionId = state.activeMission.missionId;
+      return {
+        activeMission: null,
+        completedMissions: [...state.completedMissions, missionId],
+      };
+    }),
+  cancelMission: () => set(() => ({ activeMission: null })),
+  setActiveInteractableId: (id) => set(() => ({ activeInteractableId: id })),
+  showCitizenDialogue: (citizenId, text, x, y, duration = 3000) =>
+    set(() => ({
+      citizenDialogueBubble: { citizenId, text, x, y, until: Date.now() + duration },
+    })),
+  clearCitizenDialogue: () => set(() => ({ citizenDialogueBubble: null })),
 }));

@@ -28,6 +28,16 @@ import type { Ticker } from "@/types/ticker";
 import type { DistrictZone, NewsstandData, WorldProp, WorldStructure, WorldSurface } from "@/types/world";
 import { hitTestDistrict, screenToWorld } from "./useHitTesting";
 import { useCameraControls } from "./useCameraControls";
+import { fastTravelGates } from "@/data/fastTravel";
+import { dataChips } from "@/data/collectibles";
+import { districtNpcDefs } from "@/data/npcTypes";
+import { districtInteractables } from "@/data/interactables";
+import { districtActivations, districtMissions } from "@/data/districtActions";
+import { drawFloatingHolograms, drawSteamVents, drawBlinkingSigns, drawCourierDrones, drawAmbientSpeechBubbles } from "./systems/drawAmbient";
+import { drawDistrictEffect } from "./systems/districtEffects";
+import { drawHoverPrompts, type HoverPromptTarget } from "./systems/drawHoverPrompts";
+import { drawInteractable } from "./systems/drawInteractables";
+import { drawMissionIndicator, checkMissionProgress, processMissionResult } from "./systems/missionSystem";
 
 type HoverEntity =
   | { kind: "ticker"; ticker: Ticker; district: District; x: number; y: number }
@@ -692,6 +702,134 @@ export function CityCanvas() {
         return;
       }
 
+      // E-key near citizen: trigger citizen interaction
+      const nearbyCitizen = npcRuntimeRef.current.find(
+        (npc) => npc.type === "citizen" && Math.hypot(player.x - npc.x, player.y - npc.y) < 88
+      ) ?? null;
+      if (nearbyCitizen) {
+        const defs = districtNpcDefs[nearbyCitizen.districtId];
+        if (defs && defs.length > 0) {
+          const citizenIdx = Math.abs(nearbyCitizen.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % defs.length;
+          const def = defs[citizenIdx];
+          nearbyCitizen.speechText = def.dialogues[Math.floor(Date.now() / 3000) % def.dialogues.length];
+          nearbyCitizen.speechUntil = performance.now() + 3000;
+          if (def.clickAction.type === "speak") {
+            nearbyCitizen.speechText = def.clickAction.line;
+            nearbyCitizen.speechUntil = performance.now() + 3500;
+          } else if (def.clickAction.type === "reveal-rumor") {
+            useNeonStore.getState().addQuestToast(def.clickAction.rumor, "rumor", nearbyCitizen.districtId);
+          } else if (def.clickAction.type === "trigger-pulse") {
+            useNeonStore.getState().triggerDistrictPulse(def.clickAction.districtId, "scene", 1500);
+          } else if (def.clickAction.type === "start-mission") {
+            const mission = districtMissions[def.clickAction.missionId];
+            if (mission) {
+              useNeonStore.getState().startMission(mission.id, mission.districtId, mission.steps.length);
+              useNeonStore.getState().addQuestToast(`Mission: ${mission.title}`, "mission-start", mission.districtId);
+            }
+          } else if (def.clickAction.type === "open-panel") {
+            setActiveRightPanelTab("scenes");
+          }
+          // Check mission progress
+          const currentActiveMission = useNeonStore.getState().activeMission;
+          if (currentActiveMission) {
+            const mission = districtMissions[currentActiveMission.missionId];
+            if (mission) {
+              const result = checkMissionProgress(currentActiveMission, "npc", def.role, undefined, mission.steps);
+              if (result.matched) {
+                processMissionResult(result as { matched: true; advanceOrComplete: "advance" | "complete"; message: string }, {
+                  districtId: mission.districtId,
+                  effectType: districtActivations[mission.districtId]?.effectType ?? "glitch-surge",
+                  duration: districtActivations[mission.districtId]?.duration ?? 2000,
+                  primaryColor: districtActivations[mission.districtId]?.color ?? "#33F5FF",
+                  secondaryColor: districtActivations[mission.districtId]?.secondaryColor ?? "#FF3DF2",
+                });
+              }
+            }
+          }
+          return;
+        }
+      }
+
+      // E-key near interactable: trigger interactable interaction
+      const nearbyInteractable = districtInteractables.find(
+        (obj) => Math.hypot(player.x - obj.x, player.y - obj.y) < 88
+      ) ?? null;
+      if (nearbyInteractable) {
+        useNeonStore.getState().setActiveInteractableId(nearbyInteractable.id);
+        const effect = nearbyInteractable.clickEffect;
+        if (effect.type === "panel") {
+          setWorldNewsBubble({
+            id: `interactable-${nearbyInteractable.id}`,
+            kind: "prop",
+            anchorX: nearbyInteractable.x + nearbyInteractable.width / 2,
+            anchorY: nearbyInteractable.y - nearbyInteractable.height - 12,
+            title: effect.title,
+            lines: effect.lines.map((text, i) => ({ id: `${nearbyInteractable.id}-line-${i}`, text })),
+          });
+        } else if (effect.type === "district-activate") {
+          const distActivation = districtActivations[nearbyInteractable.districtId];
+          if (distActivation) {
+            useNeonStore.getState().activateDistrict(
+              distActivation.districtId, distActivation.effectType, distActivation.duration,
+              distActivation.color, distActivation.secondaryColor
+            );
+          }
+        } else if (effect.type === "reveal") {
+          useNeonStore.getState().addQuestToast(effect.message, "insight", nearbyInteractable.districtId);
+        } else if (effect.type === "pulse") {
+          useNeonStore.getState().triggerDistrictPulse(nearbyInteractable.districtId, "scene", 1200);
+        }
+        // Check mission progress
+        const currentActiveMission = useNeonStore.getState().activeMission;
+        if (currentActiveMission) {
+          const mission = districtMissions[currentActiveMission.missionId];
+          if (mission) {
+            const result = checkMissionProgress(currentActiveMission, "object", undefined, nearbyInteractable.type, mission.steps);
+            if (result.matched) {
+              processMissionResult(result as { matched: true; advanceOrComplete: "advance" | "complete"; message: string }, {
+                districtId: mission.districtId,
+                effectType: districtActivations[mission.districtId]?.effectType ?? "glitch-surge",
+                duration: districtActivations[mission.districtId]?.duration ?? 2000,
+                primaryColor: districtActivations[mission.districtId]?.color ?? "#33F5FF",
+                secondaryColor: districtActivations[mission.districtId]?.secondaryColor ?? "#FF3DF2",
+              });
+            }
+          }
+        }
+        setTimeout(() => {
+          if (useNeonStore.getState().activeInteractableId === nearbyInteractable.id) {
+            useNeonStore.getState().setActiveInteractableId(null);
+          }
+        }, 2000);
+        return;
+      }
+
+      // E-key near fast travel gate: teleport player
+      const nearbyGate = fastTravelGates.find(
+        (gate) => Math.hypot(player.x - (gate.x + gate.width / 2), player.y - (gate.y + gate.height / 2)) < 60
+      ) ?? null;
+      if (nearbyGate) {
+        const targetDistrict = districts.find((d) => d.id === nearbyGate.targetDistrictId);
+        useNeonStore.getState().fastTravel(nearbyGate.targetDistrictId);
+        useNeonStore.getState().addQuestToast(
+          `Traveled to ${targetDistrict?.name ?? nearbyGate.targetDistrictId}`,
+          "fast-travel",
+          nearbyGate.targetDistrictId,
+        );
+        return;
+      }
+
+      // E-key near data chip: collect it
+      const storeState = useNeonStore.getState();
+      const nearbyChip = dataChips.find(
+        (chip) => !storeState.collectedChips.includes(chip.id) && Math.hypot(player.x - chip.x, player.y - chip.y) < 30
+      ) ?? null;
+      if (nearbyChip) {
+        useNeonStore.getState().collectChip(nearbyChip.id, nearbyChip.insight);
+        useNeonStore.getState().addQuestToast(nearbyChip.insight, "data-chip", nearbyChip.districtId);
+        return;
+      }
+
       // Newsstand E-key interaction (live news via overlay)
       const nearbyNewsstand = newsstands.find(
         (stand) => Math.hypot(player.x - stand.x, player.y - stand.y) < 104
@@ -1344,6 +1482,22 @@ export function CityCanvas() {
         });
       }
 
+      // --- District Activation Effects ---
+      const activation = useNeonStore.getState().districtActivation;
+      if (activation && Date.now() < activation.startedAt + activation.duration) {
+        const zone = districtZones.find(z => z.districtId === activation.districtId);
+        if (zone) {
+          drawDistrictEffect(activation.effectType, {
+            ctx, time, startTime: activation.startedAt, duration: activation.duration,
+            zone: { x: zone.x, y: zone.y, width: zone.width, height: zone.height, accent: districtsById[zone.districtId]?.accent ?? "#33F5FF" },
+            cameraX: currentCamera.x, cameraY: currentCamera.y,
+            primaryColor: activation.primaryColor, secondaryColor: activation.secondaryColor,
+          });
+        }
+      } else if (activation) {
+        useNeonStore.getState().clearDistrictActivation();
+      }
+
       // Old procedural surfaces/structures commented out — replaced by district images
       // districtSurfaces.forEach((surface) => {
       //   drawSurface(surface, currentCamera.x, currentCamera.y, time);
@@ -1439,52 +1593,52 @@ export function CityCanvas() {
         }
       });
 
-      // Props rendering disabled
-      // const visibleProps = cityProps.filter((prop) => {
-      //   const screenX = prop.x - currentCamera.x;
-      //   const screenY = prop.y - currentCamera.y;
-      //   return screenX > -120 && screenX < width + 120 && screenY > -120 && screenY < height + 120;
-      // });
-      //
-      // visibleProps.sort((left, right) => left.y - right.y);
-      //
-      // visibleProps.forEach((prop) => {
-      //   const showLabel =
-      //     (hoverEntityRef.current?.kind === "prop" && hoverEntityRef.current.prop.id === prop.id) ||
-      //     selectedMarker?.id === prop.id ||
-      //     Math.hypot(state.player.x - prop.x, state.player.y - prop.y) < 96;
-      //   drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id], showLabel);
-      //   if (prop.type === "newsstand") {
-      //     const vendorX = prop.x + 50 - currentCamera.x;
-      //     const vendorY = prop.y - currentCamera.y;
-      //     const bob = Math.sin(time / 300) * 0.8;
-      //     drawCharacter(ctx, vendorX, vendorY, "#2C213E", "#F8E8FF", "#0A0C12", prop.accent, "left", 0, bob);
-      //   }
-      //   if (selectedMarker?.kind !== "ticker" && selectedMarker?.id === prop.id) {
-      //     const markerX = prop.x - currentCamera.x + prop.width / 2;
-      //     const markerY = prop.y - currentCamera.y + 6;
-      //     drawLightPool(ctx, markerX, markerY, 34, selectedMarker.color, 0.16);
-      //     drawRing(ctx, markerX, markerY, selectedMarker.color, 1.4);
-      //     drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
-      //     drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
-      //     ctx.fillStyle = "#F6FBFF";
-      //     ctx.font = "bold 9px monospace";
-      //     ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
-      //   }
-      // });
+      // Props rendering
+      const visibleProps = cityProps.filter((prop) => {
+        const screenX = prop.x - currentCamera.x;
+        const screenY = prop.y - currentCamera.y;
+        return screenX > -120 && screenX < width + 120 && screenY > -120 && screenY < height + 120;
+      });
 
-      // Newsstand selected marker disabled
-      // if (selectedMarker && selectedMarker.kind === "newsstand") {
-      //   const markerX = selectedMarker.x - currentCamera.x;
-      //   const markerY = selectedMarker.y - currentCamera.y + 6;
-      //   drawLightPool(ctx, markerX, markerY, 36, selectedMarker.color, 0.18);
-      //   drawRing(ctx, markerX, markerY, selectedMarker.color, 1.6);
-      //   drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
-      //   drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
-      //   ctx.fillStyle = "#F6FBFF";
-      //   ctx.font = "bold 9px monospace";
-      //   ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
-      // }
+      visibleProps.sort((left, right) => left.y - right.y);
+
+      visibleProps.forEach((prop) => {
+        const showLabel =
+          (hoverEntityRef.current?.kind === "prop" && hoverEntityRef.current.prop.id === prop.id) ||
+          selectedMarker?.id === prop.id ||
+          Math.hypot(state.player.x - prop.x, state.player.y - prop.y) < 96;
+        drawProp(prop, prop.x - currentCamera.x, prop.y - currentCamera.y, time, propEffectsRef.current[prop.id], showLabel);
+        if (prop.type === "newsstand") {
+          const vendorX = prop.x + 50 - currentCamera.x;
+          const vendorY = prop.y - currentCamera.y;
+          const bob = Math.sin(time / 300) * 0.8;
+          drawCharacter(ctx, vendorX, vendorY, "#2C213E", "#F8E8FF", "#0A0C12", prop.accent, "left", 0, bob);
+        }
+        if (selectedMarker?.kind !== "ticker" && selectedMarker?.id === prop.id) {
+          const markerX = prop.x - currentCamera.x + prop.width / 2;
+          const markerY = prop.y - currentCamera.y + 6;
+          drawLightPool(ctx, markerX, markerY, 34, selectedMarker.color, 0.16);
+          drawRing(ctx, markerX, markerY, selectedMarker.color, 1.4);
+          drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
+          drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
+          ctx.fillStyle = "#F6FBFF";
+          ctx.font = "bold 9px monospace";
+          ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
+        }
+      });
+
+      // Newsstand selected marker
+      if (selectedMarker && selectedMarker.kind === "newsstand") {
+        const markerX = selectedMarker.x - currentCamera.x;
+        const markerY = selectedMarker.y - currentCamera.y + 6;
+        drawLightPool(ctx, markerX, markerY, 36, selectedMarker.color, 0.18);
+        drawRing(ctx, markerX, markerY, selectedMarker.color, 1.6);
+        drawPixelRect(ctx, markerX - 34, markerY - 36, 68, 12, "#081019");
+        drawPixelFrame(ctx, markerX - 34, markerY - 36, 68, 12, hexToRgba(selectedMarker.color, 0.34));
+        ctx.fillStyle = "#F6FBFF";
+        ctx.font = "bold 9px monospace";
+        ctx.fillText(selectedMarker.label.slice(0, 11), markerX - 28, markerY - 27);
+      }
 
       npcRuntimeRef.current.forEach((npc) => {
         const x = npc.x - currentCamera.x;
@@ -1538,9 +1692,44 @@ export function CityCanvas() {
             ctx.fillText(ticker.symbol, x - 16, y - 25);
           }
         } else {
-          const body = npc.style === "broker" ? "#22324D" : npc.style === "vendor" ? "#2C213E" : "#182433";
-          const trim = npc.style === "runner" ? "#E3FFFB" : "#F8E8FF";
+          // Citizen NPC rendering with role-based enhancements
+          const citizenDefs = districtNpcDefs[npc.districtId];
+          const citizenIdx = citizenDefs && citizenDefs.length > 0
+            ? Math.abs(npc.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % citizenDefs.length
+            : -1;
+          const citizenDef = citizenIdx >= 0 && citizenDefs ? citizenDefs[citizenIdx] : null;
+
+          // Subtle glow for citizens with hover prompts when player is nearby
+          const citizenPlayerDist = Math.hypot(state.player.x - npc.x, state.player.y - npc.y);
+          if (citizenDef && citizenPlayerDist < 100) {
+            const proximityAlpha = (1 - citizenPlayerDist / 100) * 0.12;
+            drawLightPool(ctx, x, y + 10, 28, citizenDef.trimColor, proximityAlpha);
+          }
+
+          const body = citizenDef ? citizenDef.bodyColor : (npc.style === "broker" ? "#22324D" : npc.style === "vendor" ? "#2C213E" : "#182433");
+          const trim = citizenDef ? citizenDef.trimColor : (npc.style === "runner" ? "#E3FFFB" : "#F8E8FF");
           drawCharacter(ctx, x, y, body, trim, "#0A0C12", npc.color, npc.facing, 0, bob);
+
+          // Show role-based hover prompt text when player is within 100px
+          if (citizenDef && citizenPlayerDist < 100) {
+            const promptAlpha = (1 - citizenPlayerDist / 100) * 0.7;
+            ctx.save();
+            ctx.globalAlpha = promptAlpha;
+            ctx.fillStyle = "#081019";
+            const promptText = citizenDef.hoverPrompt;
+            const promptW = promptText.length * 5.5 + 12;
+            ctx.fillRect(x - promptW / 2, y - 62, promptW, 12);
+            ctx.strokeStyle = hexToRgba(citizenDef.trimColor, 0.4);
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x - promptW / 2, y - 62, promptW, 12);
+            ctx.fillStyle = "#F6FBFF";
+            ctx.font = "bold 7px monospace";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(promptText, x, y - 56);
+            ctx.textAlign = "start";
+            ctx.restore();
+          }
         }
 
         if (npc.speechText) {
@@ -1551,6 +1740,165 @@ export function CityCanvas() {
           ctx.fillText(npc.speechText, x - 30, y - 37);
         }
       });
+
+      // --- Interactable Objects Rendering ---
+      const activeInteractId = useNeonStore.getState().activeInteractableId;
+      districtInteractables.forEach((obj) => {
+        const sx = obj.x - currentCamera.x;
+        const sy = obj.y - currentCamera.y;
+        // Off-screen cull
+        if (sx + obj.width < -80 || sx > width + 80 || sy + obj.height < -80 || sy > height + 80) return;
+        const playerDist = Math.hypot(state.player.x - obj.x, state.player.y - obj.y);
+        const glowPulse = (Math.sin(time * 0.003) + 1) * 0.5;
+        drawInteractable(ctx, {
+          type: obj.type,
+          x: sx,
+          y: sy,
+          width: obj.width,
+          height: obj.height,
+          accent: obj.accent,
+          label: obj.label,
+          isHovered: playerDist < 100,
+          isActive: activeInteractId === obj.id,
+          glowIntensity: glowPulse * (playerDist < 100 ? 1 : 0.4),
+        }, time);
+      });
+
+      // --- Fast Travel Gates ---
+      for (const gate of fastTravelGates) {
+        const gx = gate.x - currentCamera.x;
+        const gy = gate.y - currentCamera.y;
+        // Off-screen cull
+        if (gx + gate.width < -60 || gx > width + 60 || gy + gate.height < -60 || gy > height + 60) continue;
+
+        const playerDist = Math.hypot(state.player.x - gate.x, state.player.y - gate.y);
+        const pulse = (Math.sin(time * 0.004) + 1) * 0.5;
+
+        // Draw arch base
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(gx, gy + gate.height);
+        ctx.lineTo(gx, gy + 6);
+        ctx.quadraticCurveTo(gx + gate.width / 2, gy - 10, gx + gate.width, gy + 6);
+        ctx.lineTo(gx + gate.width, gy + gate.height);
+        ctx.strokeStyle = gate.accent;
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = gate.accent;
+        ctx.shadowBlur = 8 + pulse * 8;
+        ctx.stroke();
+
+        // Scanner beam inside arch
+        const beamY = gy + 6 + ((time * 0.02) % (gate.height - 6));
+        ctx.beginPath();
+        ctx.moveTo(gx + 3, beamY);
+        ctx.lineTo(gx + gate.width - 3, beamY);
+        ctx.strokeStyle = gate.accent;
+        ctx.globalAlpha = 0.3 + pulse * 0.4;
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Show label when player is nearby
+        if (playerDist < 100) {
+          ctx.font = "bold 9px monospace";
+          ctx.textAlign = "center";
+          ctx.fillStyle = gate.accent;
+          ctx.shadowColor = gate.accent;
+          ctx.shadowBlur = 6;
+          ctx.fillText("FAST TRAVEL", gx + gate.width / 2, gy - 6);
+          ctx.font = "7px monospace";
+          ctx.fillStyle = "#fff";
+          ctx.shadowBlur = 0;
+          ctx.fillText(gate.label, gx + gate.width / 2, gy - 16);
+          // E-key prompt
+          ctx.fillStyle = gate.accent;
+          ctx.fillText("[E]", gx + gate.width / 2, gy + gate.height + 12);
+        }
+        ctx.restore();
+      }
+
+      // --- Data Chips ---
+      const collectedChips = useNeonStore.getState().collectedChips;
+      for (const chip of dataChips) {
+        if (collectedChips.includes(chip.id)) continue;
+
+        const cx = chip.x - currentCamera.x;
+        const cy = chip.y - currentCamera.y;
+        // Off-screen cull
+        if (cx < -20 || cx > width + 20 || cy < -20 || cy > height + 20) continue;
+
+        // Floating animation
+        const floatOffset = Math.sin(time * 0.003 + chip.x * 0.01) * 4;
+        const drawY = cy + floatOffset;
+        const chipPulse = (Math.sin(time * 0.005 + chip.y * 0.02) + 1) * 0.5;
+
+        // Find district accent for glow color
+        const chipDistrict = districts.find(d => d.id === chip.districtId);
+        const chipAccent = chipDistrict?.accent ?? "#33F5FF";
+
+        ctx.save();
+        // Diamond shape (10x10)
+        ctx.beginPath();
+        ctx.moveTo(cx, drawY - 5);
+        ctx.lineTo(cx + 5, drawY);
+        ctx.lineTo(cx, drawY + 5);
+        ctx.lineTo(cx - 5, drawY);
+        ctx.closePath();
+
+        ctx.fillStyle = chipAccent;
+        ctx.shadowColor = chipAccent;
+        ctx.shadowBlur = 6 + chipPulse * 10;
+        ctx.globalAlpha = 0.7 + chipPulse * 0.3;
+        ctx.fill();
+
+        // Inner highlight
+        ctx.beginPath();
+        ctx.moveTo(cx, drawY - 2.5);
+        ctx.lineTo(cx + 2.5, drawY);
+        ctx.lineTo(cx, drawY + 2.5);
+        ctx.lineTo(cx - 2.5, drawY);
+        ctx.closePath();
+        ctx.fillStyle = "#ffffff";
+        ctx.globalAlpha = 0.5 + chipPulse * 0.3;
+        ctx.shadowBlur = 0;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+
+      // --- Ambient Effects ---
+      const districtCentersMap = Object.fromEntries(districts.map(d => [d.id, { x: d.center.x, y: d.center.y }]));
+      drawFloatingHolograms(ctx, time, null, currentCamera.x, currentCamera.y, width, height);
+      drawSteamVents(ctx, time, currentCamera.x, currentCamera.y, width, height);
+      drawBlinkingSigns(ctx, time, currentCamera.x, currentCamera.y, width, height);
+      drawCourierDrones(ctx, time, districtConnections, districtCentersMap, currentCamera.x, currentCamera.y, width, height);
+      drawAmbientSpeechBubbles(ctx, time, currentCamera.x, currentCamera.y, width, height);
+
+      // --- Hover Prompts ---
+      const hoverTargets: HoverPromptTarget[] = [];
+      // Add nearby interactables
+      districtInteractables.forEach(obj => {
+        if (Math.hypot(state.player.x - obj.x, state.player.y - obj.y) < 140) {
+          hoverTargets.push({ x: obj.x, y: obj.y, label: obj.hoverLabel, accent: obj.accent, kind: "object" });
+        }
+      });
+      // Add nearby citizens with hover prompts from district NPC defs
+      npcRuntimeRef.current.forEach(npc => {
+        if (npc.type === "citizen" && Math.hypot(state.player.x - npc.x, state.player.y - npc.y) < 140) {
+          const defs = districtNpcDefs[npc.districtId];
+          if (defs && defs.length > 0) {
+            // Pick a def based on NPC index hash
+            const citizenIdx = Math.abs(npc.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % defs.length;
+            const def = defs[citizenIdx];
+            hoverTargets.push({ x: npc.x, y: npc.y, label: def.hoverPrompt, accent: def.trimColor, kind: "npc" });
+          }
+        }
+      });
+      drawHoverPrompts(ctx, time, hoverTargets, state.player.x, state.player.y, currentCamera.x, currentCamera.y, width, height);
+
+      // --- Mission Indicator ---
+      drawMissionIndicator(ctx, useNeonStore.getState().activeMission, currentCamera.x, currentCamera.y, districtCentersMap, time);
 
       if (Math.hypot(state.player.vx, state.player.vy) > 0.14 && time - lastPlayerTrailAt > 90) {
         playerTrailRef.current.unshift({ x: state.player.x, y: state.player.y + 10, age: 1 });
@@ -1729,12 +2077,11 @@ export function CityCanvas() {
   const getStockRuntimeAt = (worldX: number, worldY: number) =>
     npcRuntimeRef.current.find((npc) => npc.type === "stock" && Math.hypot(worldX - npc.x, worldY - npc.y) <= 18) ?? null;
 
-  // Newsstand and prop hit testing disabled
-  // const getNewsstandAt = (worldX: number, worldY: number) =>
-  //   newsstands.find((stand) => Math.abs(worldX - (stand.x + 16)) <= 24 && Math.abs(worldY - (stand.y - 6)) <= 22) ?? null;
+  const getNewsstandAt = (worldX: number, worldY: number) =>
+    newsstands.find((stand) => Math.abs(worldX - (stand.x + 16)) <= 24 && Math.abs(worldY - (stand.y - 6)) <= 22) ?? null;
 
-  // const getPropAt = (worldX: number, worldY: number) =>
-  //   [...cityProps].reverse().find((prop) => worldX >= prop.x && worldX <= prop.x + prop.width && worldY >= prop.y - prop.height && worldY <= prop.y + 8) ?? null;
+  const getPropAt = (worldX: number, worldY: number) =>
+    [...cityProps].reverse().find((prop) => worldX >= prop.x && worldX <= prop.x + prop.width && worldY >= prop.y - prop.height && worldY <= prop.y + 8) ?? null;
 
   const handleHover = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1748,20 +2095,19 @@ export function CityCanvas() {
       return;
     }
 
-    // Newsstand and prop hover detection disabled
-    // const newsstand = getNewsstandAt(world.x, world.y);
-    // if (newsstand) {
-    //   const district = districtsById[newsstand.districtId];
-    //   setHoverEntity({ kind: "newsstand", stand: newsstand, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
-    //   return;
-    // }
+    const newsstand = getNewsstandAt(world.x, world.y);
+    if (newsstand) {
+      const district = districtsById[newsstand.districtId];
+      setHoverEntity({ kind: "newsstand", stand: newsstand, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
+      return;
+    }
 
-    // const prop = getPropAt(world.x, world.y);
-    // if (prop) {
-    //   const district = districtsById[prop.districtId];
-    //   setHoverEntity({ kind: "prop", prop, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
-    //   return;
-    // }
+    const prop = getPropAt(world.x, world.y);
+    if (prop) {
+      const district = districtsById[prop.districtId];
+      setHoverEntity({ kind: "prop", prop, district, x: event.clientX - rect.left, y: event.clientY - rect.top });
+      return;
+    }
 
     setHoverEntity(null);
   };
@@ -1862,99 +2208,245 @@ export function CityCanvas() {
       return;
     }
 
-    // Newsstand and prop click interaction disabled
-    // const newsstand = getNewsstandAt(world.x, world.y);
-    // if (newsstand) {
-    //   setActiveNewsstandDistrictId(newsstand.districtId);
-    //   setSelectedDistrictId(newsstand.districtId);
-    //   setSelectedMarker({
-    //     id: newsstand.id,
-    //     kind: "newsstand",
-    //     x: newsstand.x + 18,
-    //     y: newsstand.y,
-    //     label: "Newsstand",
-    //     color: districtsById[newsstand.districtId].accent
-    //   });
-    //   showBubble(newsstand.id, "Newsstand open", newsstand.x, newsstand.y - 34);
-    //   openNewsstandBubble(newsstand);
-    //   return;
-    // }
+    const newsstand = getNewsstandAt(world.x, world.y);
+    if (newsstand) {
+      setActiveNewsstandDistrictId(newsstand.districtId);
+      setSelectedDistrictId(newsstand.districtId);
+      setSelectedMarker({
+        id: newsstand.id,
+        kind: "newsstand",
+        x: newsstand.x + 18,
+        y: newsstand.y,
+        label: "Newsstand",
+        color: districtsById[newsstand.districtId].accent
+      });
+      showBubble(newsstand.id, "Newsstand open", newsstand.x, newsstand.y - 34);
+      openNewsstandBubble(newsstand);
+      return;
+    }
 
-    // const prop = getPropAt(world.x, world.y);
-    // if (prop && prop.interactive) {
-    //   setSelectedMarker({
-    //     id: prop.id,
-    //     kind: "prop",
-    //     x: prop.x + prop.width / 2,
-    //     y: prop.y,
-    //     label: prop.label,
-    //     color: prop.accent
-    //   });
-    //   if (prop.landmarkTitle) {
-    //     triggerPropEffect(prop.id, "landmark", 1200);
-    //     setWorldNewsBubble({
-    //       id: `prop-${prop.id}`,
-    //       kind: "prop",
-    //       anchorX: prop.x + prop.width / 2,
-    //       anchorY: prop.y - prop.height - 14,
-    //       title: prop.landmarkTitle,
-    //       lines: [
-    //         { id: `${prop.id}-line-1`, text: prop.landmarkText ?? "A district landmark pulses with mock lore and future event hooks." },
-    //         { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} landmark. Follow the nearby streets and alleys for more activity.` }
-    //       ]
-    //     });
-    //     showBubble(prop.id, prop.label, prop.x, prop.y - prop.height - 14);
-    //     return;
-    //   }
-    //
-    //   switch (prop.behavior) {
-    //     case "vending":
-    //       triggerPropEffect(prop.id, "vending", 1100);
-    //       showBubble(prop.id, "Dispensing...", prop.x, prop.y - prop.height - 10);
-    //       break;
-    //     case "terminal":
-    //       triggerPropEffect(prop.id, "terminal", 1000);
-    //       setWorldNewsBubble({
-    //         id: `prop-${prop.id}`,
-    //         kind: "prop",
-    //         anchorX: prop.x + prop.width / 2,
-    //         anchorY: prop.y - prop.height - 12,
-    //         title: "Data Node",
-    //         lines: [
-    //           { id: `${prop.id}-line-1`, text: "Mock terminal uplink. Future agent feeds, market notes, and plugin outputs can render here." },
-    //           { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} node is waiting for a live city event stream.` }
-    //         ]
-    //       });
-    //       break;
-    //     case "billboard":
-    //       billboardFramesRef.current[prop.id] = (billboardFramesRef.current[prop.id] ?? 0) + 1;
-    //       showBubble(prop.id, "Ad cycle", prop.x, prop.y - prop.height - 10);
-    //       break;
-    //     case "lamp":
-    //       triggerPropEffect(prop.id, "lamp", 900);
-    //       showBubble(prop.id, "Lamp surge", prop.x, prop.y - prop.height - 10);
-    //       break;
-    //     case "crate":
-    //       triggerPropEffect(prop.id, "crate", 700);
-    //       showBubble(prop.id, "Static crackle", prop.x, prop.y - prop.height - 10);
-    //       break;
-    //     case "newsstand":
-    //       setActiveNewsstandDistrictId(prop.districtId);
-    //       {
-    //         const stand = newsstands.find((entry) => entry.districtId === prop.districtId);
-    //         if (stand) {
-    //           openNewsstandBubble(stand);
-    //         }
-    //       }
-    //       break;
-    //   }
-    //   return;
-    // }
+    const prop = getPropAt(world.x, world.y);
+    if (prop && prop.interactive) {
+      setSelectedMarker({
+        id: prop.id,
+        kind: "prop",
+        x: prop.x + prop.width / 2,
+        y: prop.y,
+        label: prop.label,
+        color: prop.accent
+      });
+      if (prop.landmarkTitle) {
+        triggerPropEffect(prop.id, "landmark", 1200);
+        setWorldNewsBubble({
+          id: `prop-${prop.id}`,
+          kind: "prop",
+          anchorX: prop.x + prop.width / 2,
+          anchorY: prop.y - prop.height - 14,
+          title: prop.landmarkTitle,
+          lines: [
+            { id: `${prop.id}-line-1`, text: prop.landmarkText ?? "A district landmark pulses with mock lore and future event hooks." },
+            { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} landmark. Follow the nearby streets and alleys for more activity.` }
+          ]
+        });
+        showBubble(prop.id, prop.label, prop.x, prop.y - prop.height - 14);
+        return;
+      }
+
+      switch (prop.behavior) {
+        case "vending":
+          triggerPropEffect(prop.id, "vending", 1100);
+          showBubble(prop.id, "Dispensing...", prop.x, prop.y - prop.height - 10);
+          break;
+        case "terminal":
+          triggerPropEffect(prop.id, "terminal", 1000);
+          setWorldNewsBubble({
+            id: `prop-${prop.id}`,
+            kind: "prop",
+            anchorX: prop.x + prop.width / 2,
+            anchorY: prop.y - prop.height - 12,
+            title: "Data Node",
+            lines: [
+              { id: `${prop.id}-line-1`, text: "Mock terminal uplink. Future agent feeds, market notes, and plugin outputs can render here." },
+              { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} node is waiting for a live city event stream.` }
+            ]
+          });
+          break;
+        case "billboard":
+          billboardFramesRef.current[prop.id] = (billboardFramesRef.current[prop.id] ?? 0) + 1;
+          showBubble(prop.id, "Ad cycle", prop.x, prop.y - prop.height - 10);
+          break;
+        case "lamp":
+          triggerPropEffect(prop.id, "lamp", 900);
+          showBubble(prop.id, "Lamp surge", prop.x, prop.y - prop.height - 10);
+          break;
+        case "crate":
+          triggerPropEffect(prop.id, "crate", 700);
+          showBubble(prop.id, "Static crackle", prop.x, prop.y - prop.height - 10);
+          break;
+        case "newsstand":
+          setActiveNewsstandDistrictId(prop.districtId);
+          {
+            const stand = newsstands.find((entry) => entry.districtId === prop.districtId);
+            if (stand) {
+              openNewsstandBubble(stand);
+            }
+          }
+          break;
+      }
+      return;
+    }
+
+    // --- Citizen Click Interaction ---
+    const citizenRuntime = npcRuntimeRef.current.find(
+      npc => npc.type === "citizen" && Math.hypot(world.x - npc.x, world.y - npc.y) <= 20
+    );
+    if (citizenRuntime) {
+      const defs = districtNpcDefs[citizenRuntime.districtId];
+      if (defs && defs.length > 0) {
+        const citizenIdx = Math.abs(citizenRuntime.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % defs.length;
+        const def = defs[citizenIdx];
+        // Show speech bubble
+        citizenRuntime.speechText = def.dialogues[Math.floor(Date.now() / 3000) % def.dialogues.length];
+        citizenRuntime.speechUntil = performance.now() + 3000;
+        // Process click action
+        if (def.clickAction.type === "speak") {
+          citizenRuntime.speechText = def.clickAction.line;
+          citizenRuntime.speechUntil = performance.now() + 3500;
+        } else if (def.clickAction.type === "reveal-rumor") {
+          useNeonStore.getState().addQuestToast(def.clickAction.rumor, "rumor", citizenRuntime.districtId);
+        } else if (def.clickAction.type === "trigger-pulse") {
+          useNeonStore.getState().triggerDistrictPulse(def.clickAction.districtId, "scene", 1500);
+        } else if (def.clickAction.type === "start-mission") {
+          const mission = districtMissions[def.clickAction.missionId];
+          if (mission) {
+            useNeonStore.getState().startMission(mission.id, mission.districtId, mission.steps.length);
+            useNeonStore.getState().addQuestToast(`Mission: ${mission.title}`, "mission-start", mission.districtId);
+          }
+        } else if (def.clickAction.type === "open-panel") {
+          useNeonStore.getState().setActiveRightPanelTab("scenes");
+        }
+        // Show interaction bubble
+        showBubble(citizenRuntime.id, def.hoverPrompt, citizenRuntime.x, citizenRuntime.y - 30);
+
+        // Check mission progress
+        const currentActiveMission = useNeonStore.getState().activeMission;
+        if (currentActiveMission) {
+          const mission = districtMissions[currentActiveMission.missionId];
+          if (mission) {
+            const result = checkMissionProgress(currentActiveMission, "npc", def.role, undefined, mission.steps);
+            if (result.matched) {
+              processMissionResult(result as { matched: true; advanceOrComplete: "advance" | "complete"; message: string }, {
+                districtId: mission.districtId,
+                effectType: districtActivations[mission.districtId]?.effectType ?? "glitch-surge",
+                duration: districtActivations[mission.districtId]?.duration ?? 2000,
+                primaryColor: districtActivations[mission.districtId]?.color ?? "#33F5FF",
+                secondaryColor: districtActivations[mission.districtId]?.secondaryColor ?? "#FF3DF2",
+              });
+            }
+          }
+        }
+        return;
+      }
+    }
+
+    // --- Interactable Click Handling ---
+    const clickedInteractable = districtInteractables.find(
+      obj => world.x >= obj.x && world.x <= obj.x + obj.width && world.y >= obj.y - obj.height && world.y <= obj.y + 8
+    );
+    if (clickedInteractable) {
+      useNeonStore.getState().setActiveInteractableId(clickedInteractable.id);
+      showBubble(clickedInteractable.id, clickedInteractable.dialogueOnClick, clickedInteractable.x, clickedInteractable.y - clickedInteractable.height - 14);
+
+      // Handle click effect
+      const effect = clickedInteractable.clickEffect;
+      if (effect.type === "panel") {
+        setWorldNewsBubble({
+          id: `interactable-${clickedInteractable.id}`,
+          kind: "prop",
+          anchorX: clickedInteractable.x + clickedInteractable.width / 2,
+          anchorY: clickedInteractable.y - clickedInteractable.height - 12,
+          title: effect.title,
+          lines: effect.lines.map((text, i) => ({ id: `${clickedInteractable.id}-line-${i}`, text })),
+        });
+      } else if (effect.type === "district-activate") {
+        const distActivation = districtActivations[clickedInteractable.districtId];
+        if (distActivation) {
+          useNeonStore.getState().activateDistrict(
+            distActivation.districtId, distActivation.effectType, distActivation.duration,
+            distActivation.color, distActivation.secondaryColor
+          );
+        }
+      } else if (effect.type === "reveal") {
+        useNeonStore.getState().addQuestToast(effect.message, "insight", clickedInteractable.districtId);
+      } else if (effect.type === "pulse") {
+        useNeonStore.getState().triggerDistrictPulse(clickedInteractable.districtId, "scene", 1200);
+      }
+
+      // Check mission progress
+      const currentActiveMission = useNeonStore.getState().activeMission;
+      if (currentActiveMission) {
+        const mission = districtMissions[currentActiveMission.missionId];
+        if (mission) {
+          const result = checkMissionProgress(currentActiveMission, "object", undefined, clickedInteractable.type, mission.steps);
+          if (result.matched) {
+            processMissionResult(result as { matched: true; advanceOrComplete: "advance" | "complete"; message: string }, {
+              districtId: mission.districtId,
+              effectType: districtActivations[mission.districtId]?.effectType ?? "glitch-surge",
+              duration: districtActivations[mission.districtId]?.duration ?? 2000,
+              primaryColor: districtActivations[mission.districtId]?.color ?? "#33F5FF",
+              secondaryColor: districtActivations[mission.districtId]?.secondaryColor ?? "#FF3DF2",
+            });
+          }
+        }
+      }
+
+      // Clear after 2 seconds
+      setTimeout(() => {
+        if (useNeonStore.getState().activeInteractableId === clickedInteractable.id) {
+          useNeonStore.getState().setActiveInteractableId(null);
+        }
+      }, 2000);
+      return;
+    }
+
+    // --- Fast Travel Gate Click ---
+    const clickedGate = fastTravelGates.find(
+      (gate) => world.x >= gate.x && world.x <= gate.x + gate.width && world.y >= gate.y && world.y <= gate.y + gate.height
+    );
+    if (clickedGate) {
+      const targetDistrict = districts.find((d) => d.id === clickedGate.targetDistrictId);
+      useNeonStore.getState().fastTravel(clickedGate.targetDistrictId);
+      useNeonStore.getState().addQuestToast(
+        `Traveled to ${targetDistrict?.name ?? clickedGate.targetDistrictId}`,
+        "fast-travel",
+        clickedGate.targetDistrictId,
+      );
+      return;
+    }
+
+    // --- Data Chip Click ---
+    const clickStoreState = useNeonStore.getState();
+    const clickedChip = dataChips.find(
+      (chip) => !clickStoreState.collectedChips.includes(chip.id) && Math.hypot(world.x - chip.x, world.y - chip.y) < 15
+    );
+    if (clickedChip) {
+      useNeonStore.getState().collectChip(clickedChip.id, clickedChip.insight);
+      useNeonStore.getState().addQuestToast(clickedChip.insight, "data-chip", clickedChip.districtId);
+      return;
+    }
 
     const district = hitTestDistrict(world.x, world.y, districts);
     if (district) {
       setSelectedDistrictId(district.id);
       setPluginPrompt(null);
+      // Trigger district activation effect
+      const distActivation = districtActivations[district.id];
+      if (distActivation) {
+        useNeonStore.getState().activateDistrict(
+          distActivation.districtId, distActivation.effectType, distActivation.duration,
+          distActivation.color, distActivation.secondaryColor
+        );
+      }
     }
   };
 

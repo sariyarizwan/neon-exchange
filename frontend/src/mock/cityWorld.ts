@@ -1,3 +1,4 @@
+import { districtNpcDefs } from "@/data/npcTypes";
 import { districtThemes } from "@/mock/cityThemes";
 import { districts } from "@/mock/districts";
 import { districtNewsBoards } from "@/mock/news";
@@ -634,27 +635,37 @@ export const worldColliders: WorldCollider[] = [
     }))
 ];
 
-const citizenLines = [
+const fallbackCitizenLines: [string, string, string] = [
   "Storm's coming...",
   "Liquidity's thin tonight.",
-  "Newsstand's glowing again.",
-  "Keep your stops tight.",
-  "Heard the reactor sing?",
   "The tape feels jumpy."
 ];
 
-export const citizens: Citizen[] = districtZones.flatMap((zone, zoneIndex) =>
-  Array.from({ length: zone.districtId === "consumer-strip" ? 8 : 5 }, (_, index) => ({
-    id: `${zone.districtId}-citizen-${index}`,
-    districtId: zone.districtId,
-    x: districtWalkNodes[zone.districtId][index % districtWalkNodes[zone.districtId].length].x + ((index % 2) * 18 - 9),
-    y: districtWalkNodes[zone.districtId][(index + 2) % districtWalkNodes[zone.districtId].length].y + ((index % 3) * 14 - 14),
-    style: (["walker", "vendor", "broker", "runner"] as const)[(index + zoneIndex) % 4],
-    color: index % 2 === 0 ? zone.accent : index % 3 === 0 ? "#FF3DF2" : "#B7FF3C",
-    patrolRadius: zone.districtId === "consumer-strip" ? 64 : 42,
-    dialogues: [citizenLines[(index + zoneIndex) % citizenLines.length], citizenLines[(index + zoneIndex + 2) % citizenLines.length]]
-  }))
-);
+export const citizens: Citizen[] = districtZones.flatMap((zone, zoneIndex) => {
+  const defs = districtNpcDefs[zone.districtId];
+  const count = zone.districtId === "consumer-strip" ? 8 : 5;
+  const walkNodes = districtWalkNodes[zone.districtId];
+
+  return Array.from({ length: count }, (_, index) => {
+    const def = defs?.[index % defs.length];
+
+    return {
+      id: `${zone.districtId}-citizen-${index}`,
+      districtId: zone.districtId,
+      x: walkNodes[index % walkNodes.length].x + ((index % 2) * 18 - 9),
+      y: walkNodes[(index + 2) % walkNodes.length].y + ((index % 3) * 14 - 14),
+      style: def?.style ?? (["walker", "vendor", "broker", "runner"] as const)[(index + zoneIndex) % 4],
+      color: def?.bodyColor ?? (index % 2 === 0 ? zone.accent : index % 3 === 0 ? "#FF3DF2" : "#B7FF3C"),
+      patrolRadius: zone.districtId === "consumer-strip" ? 64 : 42,
+      dialogues: def ? [...def.dialogues] : [fallbackCitizenLines[0], fallbackCitizenLines[1], fallbackCitizenLines[2]],
+      role: def?.role,
+      hoverPrompt: def?.hoverPrompt,
+      clickAction: def?.clickAction,
+      bodyColor: def?.bodyColor,
+      trimColor: def?.trimColor,
+    };
+  });
+});
 
 export const pointsOfInterest = cityProps.filter((prop) => prop.poi);
 

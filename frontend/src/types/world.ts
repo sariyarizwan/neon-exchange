@@ -67,6 +67,26 @@ export type WorldProp = {
   landmarkText?: string;
 };
 
+export type NpcRole =
+  | "token-broker" | "glitch-dealer" | "street-hacker" | "whisper-trader" | "courier-bot"
+  | "factory-worker" | "shift-supervisor" | "mechanic" | "supply-chain-op" | "inspection-drone"
+  | "reactor-engineer" | "grid-analyst" | "safety-bot" | "cable-tech" | "emergency-runner"
+  | "floor-analyst" | "portfolio-manager" | "banker" | "economic-commentator" | "security-drone"
+  | "lab-researcher" | "bioengineer" | "clinical-observer" | "compliance-officer" | "med-drone"
+  | "freight-handler" | "route-planner" | "cargo-drone" | "dispatcher" | "dock-supervisor"
+  | "street-trader" | "analyst" | "guide-bot" | "citizen" | "investor-tourist" | "sleepless-coder"
+  | "barista" | "watcher" | "tech-lead" | "chip-runner" | "prototype-tester" | "data-miner" | "signal-scout"
+  | "shopkeeper" | "trend-spotter" | "brand-rep" | "deal-hunter" | "influencer";
+
+export type NpcClickAction =
+  | { type: "speak"; line: string }
+  | { type: "reveal-rumor"; rumor: string }
+  | { type: "trigger-pulse"; districtId: string }
+  | { type: "highlight-npc"; targetNpcId: string }
+  | { type: "open-panel"; panel: string }
+  | { type: "start-mission"; missionId: string }
+  | { type: "point-to-building"; direction: string };
+
 export type Citizen = {
   id: string;
   districtId: string;
@@ -76,6 +96,29 @@ export type Citizen = {
   color: string;
   patrolRadius: number;
   dialogues: string[];
+  role?: NpcRole;
+  hoverPrompt?: string;
+  clickAction?: NpcClickAction;
+  bodyColor?: string;
+  trimColor?: string;
+};
+
+export type MissionStepState = "locked" | "active" | "completed";
+
+export type ActiveMission = {
+  missionId: string;
+  districtId: string;
+  currentStep: number;
+  stepStates: MissionStepState[];
+};
+
+export type DistrictActivationState = {
+  districtId: string;
+  effectType: string;
+  startedAt: number;
+  duration: number;
+  primaryColor: string;
+  secondaryColor: string;
 };
 
 export type DistrictZone = {
