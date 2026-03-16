@@ -16,6 +16,7 @@ import type { MockUser } from "@/types/auth";
 
 type FloatingControlsProps = {
   user: MockUser;
+  onReplayTutorial: () => void;
 };
 
 const trafficDotsStatic: Record<string, number> = {
@@ -31,7 +32,7 @@ const trafficDotsLive: Record<string, number> = {
   gridlock: 3,
 };
 
-export function FloatingControls({ user }: FloatingControlsProps) {
+export function FloatingControls({ user, onReplayTutorial }: FloatingControlsProps) {
   const router = useRouter();
   const [districtPanelOpen, setDistrictPanelOpen] = useState(false);
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
@@ -90,6 +91,7 @@ export function FloatingControls({ user }: FloatingControlsProps) {
         <button
           type="button"
           aria-label="Districts"
+          data-tutorial-target="districts-button"
           onClick={() => {
             setDistrictPanelOpen(!districtPanelOpen);
             setSettingsPanelOpen(false);
@@ -297,6 +299,16 @@ export function FloatingControls({ user }: FloatingControlsProps) {
                 <Toggle checked={showPoiMarkers} onChange={setShowPoiMarkers} label="POI Markers" hint="District discovery icons" />
                 <Toggle checked={replayMode} onChange={setReplayMode} label="Replay Mode" hint="UI only" />
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsPanelOpen(false);
+                  onReplayTutorial();
+                }}
+                className="mt-2 w-full rounded-2xl border border-neon-cyan/35 bg-neon-cyan/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100 transition hover:bg-neon-cyan/16"
+              >
+                Replay Tutorial
+              </button>
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-950/72 p-3">

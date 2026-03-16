@@ -149,7 +149,7 @@ export function RightPanel() {
   }
 
   return (
-    <aside className="fixed right-4 top-4 z-30 max-[600px]:left-4">
+    <aside className="fixed right-4 top-4 z-30 max-[600px]:left-4" data-tutorial-target="right-panel">
     <ResizablePanel
       initialWidth={340}
       initialHeight={600}

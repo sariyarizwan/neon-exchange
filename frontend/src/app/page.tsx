@@ -19,6 +19,8 @@ import { LiveDataProvider } from "@/components/LiveDataProvider";
 import { useMicroLegend } from "@/hooks/useMicroLegend";
 import { useEvidence } from "@/hooks/useEvidence";
 import { useQuestTriggers } from "@/hooks/useQuestTriggers";
+import { TutorialOverlay } from "@/components/tutorial/TutorialOverlay";
+import { useTutorial } from "@/hooks/useTutorial";
 import { cn } from "@/lib/cn";
 import { readStoredAuth } from "@/lib/mockAuth";
 import { useNeonStore } from "@/store/useNeonStore";
@@ -43,6 +45,7 @@ export default function HomePage() {
   const setAvatarId = useNeonStore((state) => state.setAvatarId);
   const toggleQuestLog = useNeonStore((state) => state.toggleQuestLog);
   const toggleLegendOverlay = useNeonStore((state) => state.toggleLegendOverlay);
+  const tutorial = useTutorial();
 
   useEffect(() => {
     const stored = readStoredAuth();
@@ -121,7 +124,7 @@ export default function HomePage() {
       {stormModeActive ? <div className="storm-tint-overlay absolute inset-0 z-20" aria-hidden="true" /> : null}
 
       <div className="relative z-10 h-screen">
-        <FloatingControls user={auth.user} />
+        <FloatingControls user={auth.user} onReplayTutorial={tutorial.restart} />
         <section className="relative h-screen overflow-hidden">
           <CenterStage />
         </section>
@@ -134,6 +137,7 @@ export default function HomePage() {
         <TickerTape />
         <BreakingNewsAlert />
         <NewsstandOverlay />
+        <TutorialOverlay tutorial={tutorial} />
       </div>
     </main>
     </LiveDataProvider>

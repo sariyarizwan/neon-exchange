@@ -137,6 +137,7 @@ export function FloatingMinimap() {
           <button
             type="button"
             aria-label="Market Intel Chat"
+            data-tutorial-target="chat-toggle"
             onClick={() => setChatOpen(!chatOpen)}
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-xl border bg-slate-950/88 text-sm font-bold transition",
@@ -178,7 +179,7 @@ export function FloatingMinimap() {
         </div>
 
         {/* Minimap */}
-        <div className="w-[200px] rounded-2xl border border-white/10 bg-slate-950/90 p-2 shadow-[0_0_20px_rgba(0,0,0,0.4)] backdrop-blur-md">
+        <div className="w-[200px] rounded-2xl border border-white/10 bg-slate-950/90 p-2 shadow-[0_0_20px_rgba(0,0,0,0.4)] backdrop-blur-md" data-tutorial-target="minimap">
           <button
             type="button"
             aria-label="Jump camera using minimap"

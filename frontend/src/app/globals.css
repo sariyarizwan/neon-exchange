@@ -160,6 +160,11 @@ select {
   100% { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes fadeSlideUp {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 @layer components {
   .glass-panel {
     background: linear-gradient(180deg, rgba(10, 14, 22, 0.95), rgba(7, 10, 16, 0.88));

@@ -321,6 +321,27 @@ class SnapshotCache:
             "isLive": market_data_service.is_live,
         }
 
+        # --- Rich district states (weather/traffic/mood/glow from signals) ---
+        district_regimes = signals.get("regimes", {}).get("districts", {})
+        sector_strength = signals.get("sector_strength", {})
+
+        district_states: list[dict] = []
+        for dc in DISTRICTS:
+            dist_tickers = [t for t in all_tickers if t.get("district_id") == dc.id]
+            regime = district_regimes.get(dc.id, "normal")
+            strength = sector_strength.get(dc.sector, {}).get("strength", 0.0)
+
+            district_states.append({
+                "district_id": dc.id,
+                "name": dc.name,
+                "sector": dc.sector,
+                "weather": _regime_to_weather(regime),
+                "traffic": _volume_to_traffic(dist_tickers),
+                "mood": district_summaries[dc.id]["mood"],
+                "glow_intensity": round(_strength_to_glow(strength), 2),
+                "active_tickers": [t.get("neon_id", "") for t in dist_tickers],
+            })
+
         # Neon stream payload (compact — sent every 2s via SSE)
         # Includes district_states and signals for data-driven city visuals
         neon_stream_payload = {
@@ -346,27 +367,6 @@ class SnapshotCache:
                 "regimes": signals.get("regimes", {}),
             },
         }
-
-        # --- Rich district states (weather/traffic/mood/glow from signals) ---
-        district_regimes = signals.get("regimes", {}).get("districts", {})
-        sector_strength = signals.get("sector_strength", {})
-
-        district_states: list[dict] = []
-        for dc in DISTRICTS:
-            dist_tickers = [t for t in all_tickers if t.get("district_id") == dc.id]
-            regime = district_regimes.get(dc.id, "normal")
-            strength = sector_strength.get(dc.sector, {}).get("strength", 0.0)
-
-            district_states.append({
-                "district_id": dc.id,
-                "name": dc.name,
-                "sector": dc.sector,
-                "weather": _regime_to_weather(regime),
-                "traffic": _volume_to_traffic(dist_tickers),
-                "mood": district_summaries[dc.id]["mood"],
-                "glow_intensity": round(_strength_to_glow(strength), 2),
-                "active_tickers": [t.get("neon_id", "") for t in dist_tickers],
-            })
 
         # Bootstrap (what SSE emits and /api/world/state returns)
         bootstrap = {
