@@ -1660,7 +1660,7 @@ export function CityCanvas() {
       const weatherStorms = ds ? Object.values(ds).filter((d) => d.weather === "storm").length : 0;
       const weatherRain = ds ? Object.values(ds).filter((d) => d.weather === "rain").length : 0;
       const weatherBoost = weatherStorms * 20 + weatherRain * 8;
-      const rainCount = stormFactor > 0 ? 120 + weatherBoost : 48 + weatherBoost;
+      const rainCount = Math.min(stormFactor > 0 ? 120 + weatherBoost : 48 + weatherBoost, rainDropsRef.current.length);
       for (let index = 0; index < rainCount; index += 1) {
         const drop = rainDropsRef.current[index];
         const rainX = (drop.xSeed + time * drop.speed * (stormFactor > 0 ? 1.6 : 1)) % (width + 120) - 60;
