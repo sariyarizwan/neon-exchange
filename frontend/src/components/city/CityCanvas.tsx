@@ -2244,7 +2244,7 @@ export function CityCanvas() {
           anchorY: prop.y - prop.height - 14,
           title: prop.landmarkTitle,
           lines: [
-            { id: `${prop.id}-line-1`, text: prop.landmarkText ?? "A district landmark pulses with mock lore and future event hooks." },
+            { id: `${prop.id}-line-1`, text: prop.landmarkText ?? "A district landmark pulses with lore and future event hooks." },
             { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} landmark. Follow the nearby streets and alleys for more activity.` }
           ]
         });
@@ -2266,7 +2266,7 @@ export function CityCanvas() {
             anchorY: prop.y - prop.height - 12,
             title: "Data Node",
             lines: [
-              { id: `${prop.id}-line-1`, text: "Mock terminal uplink. Future agent feeds, market notes, and plugin outputs can render here." },
+              { id: `${prop.id}-line-1`, text: "Terminal uplink. Future agent feeds, market notes, and plugin outputs can render here." },
               { id: `${prop.id}-line-2`, text: `${districtsById[prop.districtId].name} node is waiting for a live city event stream.` }
             ]
           });

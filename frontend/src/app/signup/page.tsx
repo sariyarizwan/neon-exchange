@@ -43,11 +43,11 @@ export default function SignupPage() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!displayName.trim()) {
-      setError("Enter a display name to create the mock account.");
+      setError("Enter a display name to create your account.");
       return;
     }
     if (!email.trim()) {
-      setError("Enter an email address. Any value works in mock mode.");
+      setError("Enter an email address. Any value works.");
       return;
     }
     if (!password.trim()) {
@@ -67,15 +67,15 @@ export default function SignupPage() {
       accent="magenta"
       eyebrow="Create Account"
       title="Join The Exchange"
-      description="Build a mock operator profile, claim an avatar, and enter a living stock-market city rendered like a neon pixel district."
+      description="Build your operator profile, claim an avatar, and enter a living stock-market city rendered like a neon pixel district."
       features={[
-        "Create a local mock identity with no backend dependency.",
+        "Create a local identity with no backend dependency.",
         "Choose a figurine-style avatar for the city streets.",
         "Future news, audio, and agents plug into this shell later."
       ]}
       panelEyebrow="Identity"
       panelTitle="Create Your Operator Profile"
-      panelText="This is still mock auth, but the entry flow now behaves like a polished product shell with room for live agents later."
+      panelText="The entry flow behaves like a polished product shell with room for live agents later."
       error={error}
       submitLabel="Create Account"
       secondaryLabel="Continue as Guest"

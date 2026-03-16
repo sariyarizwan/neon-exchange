@@ -104,7 +104,7 @@ export const newsstands: NewsstandData[] = districts.map((district, index) => {
     headlines: districtNewsBoards[district.id].lines.map((line) => ({
       id: line.id,
       title: line.text,
-      source: line.source ?? "Mock Wire",
+      source: line.source ?? "Wire",
       summary: `${focusTicker} district stream placeholder. TODO: replace with live news summaries.`
     }))
   };

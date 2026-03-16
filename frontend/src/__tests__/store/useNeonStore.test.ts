@@ -58,7 +58,7 @@ beforeEach(() => {
       bootstrapped: false,
       needsGesture: false,
       playing: false,
-      trackName: "Gemini Guide (Mock)",
+      trackName: "Gemini Guide",
       mode: "guide",
     },
     guide: {
@@ -846,7 +846,7 @@ describe("Sound extended", () => {
     act(() => {
       useNeonStore.getState().setSoundMode("guide");
     });
-    expect(useNeonStore.getState().sound.trackName).toBe("Gemini Guide (Mock)");
+    expect(useNeonStore.getState().sound.trackName).toBe("Gemini Guide");
   });
 
   it("setAudioBootstrapped sets bootstrapped flag", () => {

@@ -46,7 +46,7 @@ describe("FloatingControls", () => {
         bootstrapped: false,
         needsGesture: false,
         playing: false,
-        trackName: "Gemini Guide (Mock)",
+        trackName: "Gemini Guide",
         mode: "guide",
       },
       dock: {

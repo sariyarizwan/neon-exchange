@@ -44,11 +44,11 @@ export default function LoginPage() {
       return;
     }
     if (!email.trim()) {
-      setError("Enter an email address. Mock auth accepts any value.");
+      setError("Enter an email address. Any value is accepted.");
       return;
     }
     if (!password.trim()) {
-      setError("Enter any password value to create the local mock session.");
+      setError("Enter any password value to create the local session.");
       return;
     }
     setError(null);
@@ -64,11 +64,11 @@ export default function LoginPage() {
       features={[
         "Walk the districts and inspect stock NPCs in-world.",
         "Track scenes, alliances, and storm regimes in one city shell.",
-        "Mock auth now, Gemini Live and agents later."
+        "Gemini Live and agents coming later."
       ]}
       panelEyebrow="Access"
       panelTitle="Login To The Night Market"
-      panelText="Mock auth only. Enter any credentials, choose a pixel avatar, and step straight into the market grid."
+      panelText="Enter any credentials, choose a pixel avatar, and step straight into the market grid."
       error={error}
       submitLabel="Sign In"
       secondaryLabel="Continue as Guest"

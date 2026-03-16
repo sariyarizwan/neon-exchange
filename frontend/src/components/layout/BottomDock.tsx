@@ -80,7 +80,7 @@ export function BottomDock() {
                 "flex h-10 w-10 items-center justify-center rounded-full border text-sm",
                 isConnected ? "border-lime-400/35 bg-lime-400/10 text-lime-100" : "border-amber-400/35 bg-amber-400/10 text-amber-100"
               )}
-              title={isConnected ? (isLive ? "Live Market Data" : "Connected (Mock)") : "Disconnected"}
+              title={isConnected ? (isLive ? "Live Market Data" : "Connected") : "Disconnected"}
             >
               {isConnected ? "•" : "!"}
             </div>
